@@ -1,38 +1,65 @@
 import mxnet as mx
+from mxnet import nd
 from mxnet.gluon import nn, rnn
 
-class VAEEncoder(nn.HybridBlock):
+class VAEEncoder(nn.Block):
     '''
     encoder part of the VAE model
     '''
-    def __init__(self, hidden_size, num_layers=3, layout='TNC', dropout=0.3, bidir=True, **kwargs):
+    def __init__(self, hidden_size, num_layers=3, layout='TNC', dropout=.3, bidir=False, **kwargs):
         '''
         init this class, create relevant rnns
         '''
         super(VAEEncoder, self).__init__(**kwargs)
         with self.name_scope():
             self.layout = layout
+            self.hidden_size = hidden_size
+            self.num_layers = num_layers
             self.original_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                     layout=layout, dropout=dropout, bidirectional=bidir)
             self.paraphrase_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                       layout=layout, dropout=dropout, bidirectional=bidir)
             # we will only use the last output of this lstm
-            self.output_layer = rnn.LSTM(hidden_size=hidden_size, num_layers=1, layout=layout, \
-                                dropout=dropout, bidirectional=bidir)
+            self.output_layer = nn.Dense(units=hidden_size, activation='relu', dropout=dropout)
 
-    def hybrid_forward(self, F, original_input, paraphrase_input):
+    def forward(self, original_input, paraphrase_input):
         '''
         forward pass, inputs are embeddings of original sentences and paraphrase sentences
-        '''        
-        original_encoded = self.original_encoder(original_input)
-        org_para_concated = F.concat(original_encoded, paraphrase_input, dim=self.layout.find('C'))
-        paraphrase_encoded = self.paraphrase_encoder(org_para_concated)
-        # only need the output of last time step
-        output = self.output_layer(paraphrase_encoded)[-1]
+        '''
+        zero_hc = nd.zeros(shape=(self.num_layers, original_input.shape[self.layout.find('N')], self.hidden_size))
+        original_encoded, original_encoder_hc = self.original_encoder(original_input, [zero_hc, zero_hc])
+        ori_para_concated = nd.concat(original_encoded, paraphrase_input, dim=self.layout.find('C'))
+        paraphrase_encoded, _ = self.paraphrase_encoder(ori_para_concated, original_encoder_hc)
+        # this is the \phi of VAE encoder, i.e., \mu and \sigma
+        output = self.output_layer(paraphrase_encoded)
         return output
         
-class VAEDecoder(nn.HybridBlock):
+class VAEDecoder(nn.Block):
     '''
     decoder part of the VAE model
     '''
-    pass
+    def __init__(self, hidden_size, num_layers=3, layout='TNC', dropout=.3, bidir=False, **kwargs):
+        '''
+        init this class, create relevant rnns
+        '''
+        super(VAEDecoder, self).__init__(**kwargs)
+        with self.name_scope():
+            self.layout = layout
+            self.hidden_size = hidden_size
+            self.num_layers = num_layers
+            self.original_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
+                                    layout=layout, dropout=dropout, bidirectional=bidir)
+            self.paraphrase_decoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
+                                      layout=layout, dropout=dropout, bidirectional=bidir)
+
+    def forward(self, original_input, paraphrase_input, latent_input):
+        '''
+        forward pass, inputs are embeddings of original sentences, paraphrase sentences and 
+        latent output of encoder (which is the output of the VAEEncoder)
+        '''
+        zero_hc = nd.zeros(shape=(self.num_layers, original_input.shape[0], self.hidden_size))
+        original_encoded, original_encoded_hc = self.original_encoder(original_input, [zero_hc, zero_hc])
+        latent_input = latent_input.broadcast_to(shape=paraphrase_input.shape)
+        decoder_input = nd.concat(paraphrase_input, latent_input, dim=self.layout.find('C'))
+        decoder_output, _ = self.paraphrase_decoder(decoder_input, original_encoded_hc)
+        return decoder_output
