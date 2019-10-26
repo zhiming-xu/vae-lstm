@@ -1,3 +1,4 @@
+# !/usr/bin/env python3
 import mxnet as mx
 from mxnet import nd
 from mxnet.gluon import nn, rnn
@@ -68,7 +69,7 @@ class VAEDecoder(nn.Block):
             self.paraphrase_decoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                                dropout=dropout, bidirectional=bidir, \
                                                prefix='paraphrase_sentence_decoder_VAEDecoder')
-            self.dense_output = nn.Dense(units=emb_size, activation='relu',flatten=False)
+            self.dense_output = nn.Dense(units=emb_size, activation='sigmoid',flatten=False)
 
     def forward(self, original_input, paraphrase_input, latent_input):
         '''
