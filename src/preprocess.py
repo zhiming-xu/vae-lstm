@@ -27,7 +27,21 @@ def _dataset_tokenizer(dataset, length):
     return dataset_tk
 
 def _create_vocab(dataset, max_size):
+    '''
+    create vocabulary from dataset, whose row is [tokenized_src, tokenized_tgt]
+    '''
     seqs = [sample[0] + sample[1] for sample in dataset]
     counter = nlp.data.count_tokens(list(itertools.chain.from_iterable(seqs)))
     vocab = nlp.Vocab(counter=counter, max_size=max_size)
     return vocab
+
+def _token_to_index(dataset, vocab, emb_src):
+    '''
+    convert dataset whose row is [tokenized_src, tokenized_tgt] to [indexed_src, indexed_tgt]
+    '''
+    vocab.set_embedding(nlp.embedding.GloVe(source=emb_src))
+    tk2idx = lambda sample, vocab: [vocab[sts] for sts in sample]
+    with mp.Pool() as pool:
+        dataset_idx = pool.starmap(tk2idx, itertools.product(dataset, [vocab]))
+    return dataset_idx
+
