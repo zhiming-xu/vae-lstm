@@ -97,10 +97,11 @@ class VAE_LSTM(nn.Block):
     '''
     wrapper of all this model
     '''
-    def __init__(self, emb_size, hidden_size, num_layers, dropout=.3, bidir=False, **kwargs):
+    def __init__(self, emb_size, vocab_len, hidden_size, num_layers, dropout=.3, bidir=False, **kwargs):
         super(VAE_LSTM, self).__init__(**kwargs)
         with self.name_scope():
             self.soft_zero = 1e-6
+            self.embedding_layer = nn.Embedding(vocab_len, emb_size)
             self.hidden_size = hidden_size
             self.encoder = VAEEncoder(hidden_size=hidden_size, num_layers=num_layers, \
                                       dropout=dropout, bidir=bidir)
@@ -108,10 +109,16 @@ class VAE_LSTM(nn.Block):
                                       num_layers=num_layers, dropout=dropout, bidir=bidir)
 
     def forward(self, original_input, paraphrase_input):
+        # from idx to sentence embedding
+        original_input = self.embedding_layer(original_input)
+        paraphrase_input = self.embedding_layer(paraphrase_input)
+        # encoder part
         mu, lv = self.encoder(original_input, paraphrase_input)
+        # sample from Gaussian distribution
         eps = nd.normal(loc=0, scale=1, shape=(original_input.shape[1], \
                                                self.hidden_size), ctx=model_ctx)
         latent_input = mu + nd.exp(0.5 * lv) * eps
+        # decode the sample
         y = self.decoder(original_input, paraphrase_input, latent_input)
         self.output = y
         KL = 0.5 * nd.sum(1 + lv - mu * mu - nd.exp(lv), axis=1)
