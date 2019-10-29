@@ -38,13 +38,15 @@ class VAEEncoder(nn.Block):
         # to let lstm return final state and memory cell, we need to pass `start_state`
         start_state = self.original_encoder.begin_state(batch_size= \
                       original_input.shape[1], ctx=model_ctx)
-        # original_encoded is the output of each time step, of shape TN[hidden_size]
+        # original_encoded is the output of each time step, of shape TN[hidden_size] (omit for now)
         # original_encoder_state is a list: [hidden_output, memory cell] of the last time step
-        original_encoded, original_encoder_state = self.original_encoder(original_input, start_state)
+        _, original_encoder_state = self.original_encoder(original_input, start_state)
+        '''FIXME:  this part might be wrong
         # concat the hidden representation of original sentence and embedding of paraphrase
         # sentence, the result is of shape TN[hidden_size+emb_size]
         ori_para_concated = nd.concat(original_encoded, paraphrase_input, dim=-1)
-        paraphrase_encoded, _ = self.paraphrase_encoder(ori_para_concated, original_encoder_state)
+        '''
+        paraphrase_encoded, _ = self.paraphrase_encoder(paraphrase_input, original_encoder_state)
         # this is the \phi of VAE encoder, i.e., \mu and \sigma, swap so layout is NTC
         mu = self.output_mu(paraphrase_encoded.swapaxes(0, 1))
         lv = self.output_lv(paraphrase_encoded.swapaxes(0, 1))

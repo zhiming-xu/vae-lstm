@@ -63,14 +63,13 @@ def _get_length(sample):
     used for fixed length sampler, will return the larger length of either source or target
     sentence
     '''
-    max_length = max(len(sample[0]), len(sample[1]))
-    return max_length
+    return len(sample[0]), len(sample[1])
 
 def _get_sampler(dataset_idx, batch_size=64, num_buckets=10, ratio=.5):
     '''
     for training set, we use this function to return the sampler
     '''
-    lengths = [_get_length(sample) for sample in dataset_idx]
+    lengths = [_get_length(sample) for sample in dataset_idx if sample[0] and sample[1]]
     sampler = nlp.data.sampler.FixedBucketSampler(lengths=lengths, batch_size=batch_size, \
                                                   num_buckets=num_buckets, ratio=ratio)
     logging.info(sampler.stats())
