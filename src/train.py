@@ -2,7 +2,7 @@
 from mxnet import autograd
 import time, logging
 
-logging.basicConfig(filename=__name__, level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=None):
     '''
@@ -10,7 +10,10 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=Non
     also calculates loss/metrics whether in training or dev
     '''
     loss_val = 0.
-    for n_batch, original, paraphrase in enumerate(dataloader):
+    for n_batch, batch_sample in enumerate(dataloader):
+        original, paraphrase = batch_sample
+        original = original.as_in_context(ctx)
+        paraphrase = paraphrase.as_in_context(ctx)
         if is_train:
             with autograd.record():
                 l = model(original, paraphrase)
@@ -42,7 +45,7 @@ def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ct
     '''
     wrapper for training and "test" the model
     '''
-    for epoch in range(1, num_epoch+1):
+    for epoch in range(1, num_epoch + 1):
         start = time.time()
         # train
         is_train = True
