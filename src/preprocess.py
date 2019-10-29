@@ -1,4 +1,6 @@
 # !/usr/bin/env python3
+# this file defines helper functions for tokenzing sentences, build vocabulary,
+# and batchify indexed dataset
 from mxnet import gluon
 import gluonnlp as nlp
 import multiprocessing as mp

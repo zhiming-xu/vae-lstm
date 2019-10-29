@@ -54,22 +54,20 @@ class VAEDecoder(nn.Block):
     '''
     decoder part of the VAE model
     '''
-    def __init__(self, emb_size, hidden_size, num_layers=3, dropout=.3, \
+    def __init__(self, vocab_size, hidden_size, num_layers=3, dropout=.3, \
                  bidir=False, **kwargs):
         '''
         init this class, create relevant rnns
         '''
         super(VAEDecoder, self).__init__(**kwargs)
         with self.name_scope():
-            self.hidden_size = hidden_size
-            self.num_layers = num_layers
             self.original_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                              dropout=dropout, bidirectional=bidir, \
                                              prefix='original_sentence_encoder_VAEDecoder')
             self.paraphrase_decoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                                dropout=dropout, bidirectional=bidir, \
                                                prefix='paraphrase_sentence_decoder_VAEDecoder')
-            self.dense_output = nn.Dense(units=emb_size, activation='sigmoid',flatten=False)
+            self.dense_output = nn.Dense(units=vocab_size, activation='sigmoid',flatten=False)
 
     def forward(self, original_input, paraphrase_input, latent_input):
         '''
@@ -97,21 +95,21 @@ class VAE_LSTM(nn.Block):
     '''
     wrapper of all this model
     '''
-    def __init__(self, emb_size, vocab_len, hidden_size, num_layers, dropout=.3, bidir=False, **kwargs):
+    def __init__(self, emb_size, vocab_size, hidden_size, num_layers, dropout=.3, bidir=False, **kwargs):
         super(VAE_LSTM, self).__init__(**kwargs)
         with self.name_scope():
             self.soft_zero = 1e-6
-            self.embedding_layer = nn.Embedding(vocab_len, emb_size)
+            self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.hidden_size = hidden_size
             self.encoder = VAEEncoder(hidden_size=hidden_size, num_layers=num_layers, \
                                       dropout=dropout, bidir=bidir)
-            self.decoder = VAEDecoder(emb_size=emb_size, hidden_size=hidden_size, \
+            self.decoder = VAEDecoder(vocab_size=vocab_size, hidden_size=hidden_size, \
                                       num_layers=num_layers, dropout=dropout, bidir=bidir)
 
     def forward(self, original_input, paraphrase_input):
         # from idx to sentence embedding
-        original_input = self.embedding_layer(original_input)
-        paraphrase_input = self.embedding_layer(paraphrase_input)
+        original_input = self.embedding_layer(original_input).swapaxes(0, 1) # from NTC to TNC
+        paraphrase_input = self.embedding_layer(paraphrase_input).swapaxes(0, 1) # same as above
         # encoder part
         mu, lv = self.encoder(original_input, paraphrase_input)
         # sample from Gaussian distribution
