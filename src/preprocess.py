@@ -6,7 +6,7 @@ import gluonnlp as nlp
 import multiprocessing as mp
 import time, logging, itertools
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(filename=__name__, level=logging.INFO)
 
 def _clip_length(sample, clipper, tokenizer):
     '''

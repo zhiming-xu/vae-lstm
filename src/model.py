@@ -54,7 +54,7 @@ class VAEDecoder(nn.Block):
     '''
     decoder part of the VAE model
     '''
-    def __init__(self, vocab_size, hidden_size, num_layers=3, dropout=.3, \
+    def __init__(self, output_size, hidden_size, num_layers=3, dropout=.3, \
                  bidir=False, **kwargs):
         '''
         init this class, create relevant rnns
@@ -67,7 +67,7 @@ class VAEDecoder(nn.Block):
             self.paraphrase_decoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                                dropout=dropout, bidirectional=bidir, \
                                                prefix='paraphrase_sentence_decoder_VAEDecoder')
-            self.dense_output = nn.Dense(units=vocab_size, activation='sigmoid',flatten=False)
+            self.dense_output = nn.Dense(units=output_size, activation='sigmoid', flatten=False)
 
     def forward(self, original_input, paraphrase_input, latent_input):
         '''
@@ -103,7 +103,7 @@ class VAE_LSTM(nn.Block):
             self.hidden_size = hidden_size
             self.encoder = VAEEncoder(hidden_size=hidden_size, num_layers=num_layers, \
                                       dropout=dropout, bidir=bidir)
-            self.decoder = VAEDecoder(vocab_size=vocab_size, hidden_size=hidden_size, \
+            self.decoder = VAEDecoder(output_size=emb_size, hidden_size=hidden_size, \
                                       num_layers=num_layers, dropout=dropout, bidir=bidir)
 
     def forward(self, original_input, paraphrase_input):
