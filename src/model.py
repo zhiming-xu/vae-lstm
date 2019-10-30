@@ -1,7 +1,7 @@
 # !/usr/bin/env python3
 import mxnet as mx
 from mxnet import nd
-from mxnet.gluon import nn, rnn
+from mxnet.gluon import nn, rnn, loss
 
 try:
     nd.ones(shape=(2, 2), ctx=mx.gpu())
@@ -60,19 +60,20 @@ class VAEDecoder(nn.Block):
     '''
     decoder part of the VAE model
     '''
-    def __init__(self, output_size, hidden_size, num_layers=3, dropout=.3, \
+    def __init__(self, original_encoder, output_size, hidden_size, num_layers=3, dropout=.3, \
                  bidir=False, **kwargs):
         '''
-        init this class, create relevant rnns
+        init this class, create relevant rnns, note: we will share the original sentence encoder
+        between VAE encoder and VAE decoder
         '''
         super(VAEDecoder, self).__init__(**kwargs)
         with self.name_scope():
-            self.original_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
-                                             dropout=dropout, bidirectional=bidir, \
-                                             prefix='original_sentence_encoder_VAEDecoder')
+            self.original_encoder = original_encoder    # shared from VAEEndoer
             self.paraphrase_decoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                                dropout=dropout, bidirectional=bidir, \
                                                prefix='paraphrase_sentence_decoder_VAEDecoder')
+            # the `output_size` should be set eqaul to the vocab size (a probablity distribution
+            # over all words in vocabulary)
             self.dense_output = nn.Dense(units=output_size, activation='sigmoid', flatten=False)
 
     def forward(self, original_input, paraphrase_input, latent_input):
@@ -104,31 +105,31 @@ class VAE_LSTM(nn.Block):
     def __init__(self, emb_size, vocab_size, hidden_size, num_layers, dropout=.3, bidir=False, **kwargs):
         super(VAE_LSTM, self).__init__(**kwargs)
         with self.name_scope():
-            self.soft_zero = 1e-6
             self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.hidden_size = hidden_size
+            self.kl_loss = loss.KLDivLoss()
+            self.log_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(hidden_size=hidden_size, num_layers=num_layers, \
                                       dropout=dropout, bidir=bidir)
-            self.decoder = VAEDecoder(output_size=emb_size, hidden_size=hidden_size, \
-                                      num_layers=num_layers, dropout=dropout, bidir=bidir)
+            self.decoder = VAEDecoder(original_encoder=self.encoder.original_encoder, output_size=vocab_size, \
+                                      hidden_size=hidden_size, num_layers=num_layers, dropout=dropout, bidir=bidir)
 
-    def forward(self, original_input, paraphrase_input):
+    def forward(self, original_emb, paraphrase_emb):
         # from idx to sentence embedding
-        original_input = self.embedding_layer(original_input).swapaxes(0, 1) # from NTC to TNC
-        paraphrase_input = self.embedding_layer(paraphrase_input).swapaxes(0, 1) # same as above
+        original_emb = self.embedding_layer(original_emb).swapaxes(0, 1) # from NTC to TNC
+        paraphrase_emb = self.embedding_layer(paraphrase_emb).swapaxes(0, 1) # same as above
         # encoder part
-        mu, sg = self.encoder(original_input, paraphrase_input)
+        mu, sg = self.encoder(original_emb, paraphrase_emb)
         # sample from Gaussian distribution N(0, 1), of the sample shape to mu/lv
-        eps = nd.normal(loc=0, scale=1, shape=(original_input.shape[1], \
+        eps = nd.normal(loc=0, scale=1, shape=(original_emb.shape[1], \
                                                self.hidden_size), ctx=model_ctx)
         latent_input = mu + nd.exp(0.5 * sg) * eps  # exp is to make the std dev non-negative
+        # the KL Div should be calculated between the sample from N(0, 1), and the distribution after
+        # Parameterization Trick, negation since we want it to be small
+        kl_loss = -self.kl_loss(latent_input, eps)
         # decode the sample
-        y = self.decoder(original_input, paraphrase_input, latent_input)
-        self.output = y
-        # FIXME: the loss might not be calculated this way, since paraphrase_input is not a
-        # probablity distribution
-        KL = 0.5 * nd.sum(1 + sg - mu * mu - nd.exp(sg), axis=1)
-        logloss = nd.sum(paraphrase_input * nd.log(y + self.soft_zero) + (1 - paraphrase_input) * \
-                  nd.log(1 - y + self.soft_zero), axis=(0, 2))
-        loss = - logloss - KL
+        y = self.decoder(original_emb, paraphrase_emb, latent_input)
+        # y is the decoded full sentence, of shape (batch_size, seq_length, vocab_size)
+        log_loss = self.log_loss(paraphrase_emb, y) 
+        loss = log_loss + kl_loss
         return loss
