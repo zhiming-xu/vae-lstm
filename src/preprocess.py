@@ -25,7 +25,7 @@ def _tokenize_dataset(dataset, length=25):
     start = time.time()
     clipper = nlp.data.ClipSequence(length=length)
     tokenizer = nlp.data.SpacyTokenizer('en')
-    '''TODO: to debug with vscode, mp needs to be turned off
+    '''NOTE: to debug with vscode, mp needs to be turned off
     with mp.Pool() as pool:
         dataset_tk = gluon.data.SimpleDataset(
             pool.starmap(_clip_length, itertools.product(dataset, [clipper], [tokenizer]))

@@ -9,8 +9,8 @@ def _load_dataset(src_name, tgt_name, length=5000):
     src_name: filename of source sentence, tgt_name: filename of target sentence
     '''
     with open(src_name, 'r') as f_src, open(tgt_name, 'r') as f_tgt:
-        src_list = ['<bos> ' + line[:-1] + ' <eos>' for line in f_src]
-        tgt_list = ['<bos> ' + line[:-1] + ' <eos>' for line in f_tgt]
+        src_list = [line[:-1] for line in f_src]
+        tgt_list = [line[:-1] for line in f_tgt]
     return [pair for pair in zip(src_list, tgt_list)][:length]
 
 def get_dataset_str(folder='mscoco', length=5000):
