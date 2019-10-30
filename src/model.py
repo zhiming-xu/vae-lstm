@@ -66,7 +66,7 @@ class VAEDecoder(nn.Block):
                                                prefix='paraphrase_sentence_decoder_VAEDecoder')
             # the `output_size` should be set eqaul to the vocab size (a probablity distribution
             # over all words in vocabulary)
-            self.dense_output = nn.Dense(units=output_size, activation='sigmoid', flatten=False)
+            self.dense_output = nn.Dense(units=output_size, activation='relu', flatten=False)
 
     def forward(self, last_state, paraphrase_input, latent_input):
         '''
@@ -87,7 +87,7 @@ class VAEDecoder(nn.Block):
 
 class VAE_LSTM(nn.Block):
     '''
-    wrapper of all this model
+    wrapper of all part of this model
     '''
     def __init__(self, emb_size, vocab_size, hidden_size, num_layers, dropout=.3, bidir=False, **kwargs):
         super(VAE_LSTM, self).__init__(**kwargs)
@@ -115,7 +115,7 @@ class VAE_LSTM(nn.Block):
         kl_loss = -self.kl_div(mu, sg)
         # decode the sample
         y, _ = self.decoder(last_state, paraphrase_emb, latent_input)
-        # y is the decoded full sentence, of shape (batch_size, seq_length, vocab_size)
-        log_loss = self.log_loss(paraphrase_idx, y)
+        # y is the decoded full sentence, of layout TNC, need to change to NTC
+        log_loss = self.log_loss(y.swapaxes(0, 1), paraphrase_idx)
         loss = log_loss + kl_loss
         return loss

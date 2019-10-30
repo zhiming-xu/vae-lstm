@@ -4,7 +4,7 @@ import gluonnlp as nlp
 DATA_DIR = 'data/'
 FILES = ['train_source.txt', 'train_target.txt']
 
-def _load_dataset(src_name, tgt_name, length=50000):
+def _load_dataset(src_name, tgt_name, length=5000):
     '''
     src_name: filename of source sentence, tgt_name: filename of target sentence
     '''
