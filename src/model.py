@@ -27,9 +27,10 @@ class VAEEncoder(nn.Block):
             self.paraphrase_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                                dropout=dropout, bidirectional=bidir, \
                                                prefix='paraphrase_sentence_encoder_VAEEncoder')
-            # dense layers calculating mu and lv to sample z
-            self.output_mu = nn.Dense(units=hidden_size, activation='relu')
-            self.output_lv = nn.Dense(units=hidden_size, activation='sigmoid')
+            # dense layers calculating mu and lv to sample, since the length of the input is
+            # flexible, we need to use RNN
+            self.output_mu = rnn.LSTM(hidden_size=hidden_size, dropout=dropout)
+            self.output_lv = rnn.LSTM(hidden_size=hidden_size, dropout=dropout)
 
     def forward(self, original_input, paraphrase_input):
         '''
@@ -47,9 +48,10 @@ class VAEEncoder(nn.Block):
         ori_para_concated = nd.concat(original_encoded, paraphrase_input, dim=-1)
         '''
         paraphrase_encoded, _ = self.paraphrase_encoder(paraphrase_input, original_encoder_state)
-        # this is the \phi of VAE encoder, i.e., \mu and \sigma, swap so layout is NTC
-        mu = self.output_mu(paraphrase_encoded.swapaxes(0, 1))
-        lv = self.output_lv(paraphrase_encoded.swapaxes(0, 1))
+        # this is the \phi of VAE encoder, i.e., \mu and \sigma, we only use the last output,
+        # thus the their shapes are of (batch_size, hidden_size)
+        mu = self.output_mu(paraphrase_encoded)[-1]
+        lv = self.output_lv(paraphrase_encoded)[-1]
         return mu, lv
         
 class VAEDecoder(nn.Block):

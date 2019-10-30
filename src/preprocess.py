@@ -6,7 +6,8 @@ import gluonnlp as nlp
 # import multiprocessing as mp
 import time, logging, itertools
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s', \
+                    datefmt='%Y-%m-%d %H:%M:%S')
 
 def _clip_length(sample, clipper, tokenizer):
     '''
@@ -24,7 +25,7 @@ def _tokenize_dataset(dataset, length=25):
     start = time.time()
     clipper = nlp.data.ClipSequence(length=length)
     tokenizer = nlp.data.SpacyTokenizer('en')
-    ''' to debug with vscode, mp needs to be turned off
+    '''TODO: to debug with vscode, mp needs to be turned off
     with mp.Pool() as pool:
         dataset_tk = gluon.data.SimpleDataset(
             pool.starmap(_clip_length, itertools.product(dataset, [clipper], [tokenizer]))
@@ -60,7 +61,7 @@ def _token_to_index(dataset_tk, vocab):
 
 def _get_length(sample):
     '''
-    used for fixed length sampler, will return the larger length of either source or target
+    used for fixed bucket sampler, will return the length of source and target
     sentence
     '''
     return len(sample[0]), len(sample[1])
@@ -97,7 +98,11 @@ def _get_batch_dataloader(dataset_idx, batch_size=None, sampler=None):
 def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab_size=50000, \
                    batch_size=64, num_buckets=10, ratio=.5):
     '''
-    only interface this file needs to expose for other parts to get dataloader
+    convenient function to get the dataloader for both training and valid set, the params
+    taken are: 
+        train/valid dataset in str form, clip length for each sentence
+        maximum vocabulary size (default 50k), batch size (default 64)
+        bucket numer (default 10), bucket ratio (default .5) for training set batch sampler
     '''
     logging.info('Begin to tokenize train set')
     train_dataset_tk = _tokenize_dataset(train_dataset_str, length=clip_length)

@@ -2,7 +2,8 @@
 from mxnet import autograd
 import time, logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s', \
+                    datefmt='%Y-%m-%d %H:%M:%S')
 
 def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=None):
     '''
