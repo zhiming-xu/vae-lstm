@@ -11,7 +11,9 @@ except:
 
 class VAEEncoder(nn.Block):
     '''
-    encoder part of the VAE model
+    encoder part of the VAE model, consisting of two LSTMs, one for encode original, the other
+    for encode original AND paraphase together. output of the latter is passed to a de facto
+    LSTM to generate mu and lv
     '''
     def __init__(self, hidden_size, num_layers=3, dropout=.3, bidir=False, **kwargs):
         '''
@@ -30,7 +32,7 @@ class VAEEncoder(nn.Block):
             # dense layers calculating mu and lv to sample, since the length of the input is
             # flexible, we need to use RNN
             self.output_mu = rnn.LSTM(hidden_size=hidden_size, dropout=dropout)
-            self.output_lv = rnn.LSTM(hidden_size=hidden_size, dropout=dropout)
+            self.output_sg = rnn.LSTM(hidden_size=hidden_size, dropout=dropout)
 
     def forward(self, original_input, paraphrase_input):
         '''
@@ -42,17 +44,17 @@ class VAEEncoder(nn.Block):
         # original_encoded is the output of each time step, of shape TN[hidden_size] (omit for now)
         # original_encoder_state is a list: [hidden_output, memory cell] of the last time step
         _, original_encoder_state = self.original_encoder(original_input, start_state)
-        '''FIXME:  this part might be wrong
+        '''TODO:  this part might be wrong
         # concat the hidden representation of original sentence and embedding of paraphrase
         # sentence, the result is of shape TN[hidden_size+emb_size]
         ori_para_concated = nd.concat(original_encoded, paraphrase_input, dim=-1)
         '''
         paraphrase_encoded, _ = self.paraphrase_encoder(paraphrase_input, original_encoder_state)
-        # this is the \phi of VAE encoder, i.e., \mu and \sigma, we only use the last output,
-        # thus the their shapes are of (batch_size, hidden_size)
-        mu = self.output_mu(paraphrase_encoded)[-1]
-        lv = self.output_lv(paraphrase_encoded)[-1]
-        return mu, lv
+        # this is the \phi of VAE encoder, i.e., \mu and "\sigma", FIXME: use the last output now
+        # thus their shapes are of (batch_size, hidden_size)
+        mu = self.output_mu(paraphrase_encoded)[-1] # \mu, mean of sampled distribution
+        sg = self.output_sg(paraphrase_encoded)[-1] # \sg, std dev of sampler distribution based on
+        return mu, sg
         
 class VAEDecoder(nn.Block):
     '''
@@ -115,15 +117,17 @@ class VAE_LSTM(nn.Block):
         original_input = self.embedding_layer(original_input).swapaxes(0, 1) # from NTC to TNC
         paraphrase_input = self.embedding_layer(paraphrase_input).swapaxes(0, 1) # same as above
         # encoder part
-        mu, lv = self.encoder(original_input, paraphrase_input)
-        # sample from Gaussian distribution
+        mu, sg = self.encoder(original_input, paraphrase_input)
+        # sample from Gaussian distribution N(0, 1), of the sample shape to mu/lv
         eps = nd.normal(loc=0, scale=1, shape=(original_input.shape[1], \
                                                self.hidden_size), ctx=model_ctx)
-        latent_input = mu + nd.exp(0.5 * lv) * eps
+        latent_input = mu + nd.exp(0.5 * sg) * eps  # exp is to make the std dev non-negative
         # decode the sample
         y = self.decoder(original_input, paraphrase_input, latent_input)
         self.output = y
-        KL = 0.5 * nd.sum(1 + lv - mu * mu - nd.exp(lv), axis=1)
+        # FIXME: the loss might not be calculated this way, since paraphrase_input is not a
+        # probablity distribution
+        KL = 0.5 * nd.sum(1 + sg - mu * mu - nd.exp(sg), axis=1)
         logloss = nd.sum(paraphrase_input * nd.log(y + self.soft_zero) + (1 - paraphrase_input) * \
                   nd.log(1 - y + self.soft_zero), axis=(0, 2))
         loss = - logloss - KL
