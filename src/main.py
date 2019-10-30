@@ -16,6 +16,6 @@ if __name__ == '__main__':
     model.initialize(init=mx.initializer.Xavier(magnitude=.7), ctx=model_ctx)
     model.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
     model.embedding_layer.collect_params().setattr('grad_req', 'null')
-    trainer = gluon.Trainer(model.collect_params(), 'adam', {'learning_rate': 1e-4})
+    trainer = gluon.Trainer(model.collect_params(), 'adam', {'learning_rate': 1e-3})
     train_valid(train_ld, valid_ld, model, trainer, num_epoch=10, ctx=model_ctx)
     model.save_parameters('vae-lstm.params')

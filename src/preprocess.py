@@ -15,7 +15,7 @@ def _clip_length(sample, clipper, tokenizer):
     '''
     src, tgt = sample
     # the last char is always a linebreak, just ignore it
-    return clipper(tokenizer(src)[:-1]), clipper(tokenizer(tgt)[:-1])
+    return clipper(tokenizer(src)), clipper(tokenizer(tgt))
 
 def _tokenize_dataset(dataset, length=25):
     '''
