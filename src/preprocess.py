@@ -6,7 +6,7 @@ import gluonnlp as nlp
 # import multiprocessing as mp
 import time, logging, itertools
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s', \
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)-8s %(message)s', \
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 def _clip_length(sample, clipper, tokenizer):
@@ -44,6 +44,7 @@ def _create_vocab(dataset_tk, max_size):
     seqs = [sample[0] + sample[1] for sample in dataset_tk]
     counter = nlp.data.count_tokens(list(itertools.chain.from_iterable(seqs)))
     vocab = nlp.Vocab(counter=counter, max_size=max_size)
+    logging.info('Create vocabulary: %s' % vocab)
     return vocab
 
 def _tk2idx(sample, vocab):
@@ -89,10 +90,12 @@ def _get_batch_dataloader(dataset_idx, batch_size=None, sampler=None):
         dataloader = gluon.data.DataLoader(
             dataset_idx, batch_sampler=sampler, batchify_fn=batchify_fn
         )
+        logging.debug('Create dataloader for training of %d samples' % len(dataloader))
     else:
         dataloader = gluon.data.DataLoader(
             dataset_idx, batch_size=batch_size, shuffle=False, batchify_fn=batchify_fn
         )
+        logging.debug('Create dataloader for valid of %d samples' % len(dataloader))
     return dataloader
 
 def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab_size=50000, \

@@ -71,7 +71,8 @@ class VAEDecoder(nn.Block):
     def forward(self, last_state, paraphrase_input, latent_input):
         '''
         forward pass, inputs are last states (a list of last hidden output and last memory cell)
-        paraphrase sentence embedding and latent output of encoder, i.e., z calculated from mu and lv
+        paraphrase sentence embedding and latent output of encoder, i.e., z (mu sg when training,
+        sampled from N(0, 1) when testing)
         for the first step, last_state is the last state of the original sentence encoder
         '''
         # latent_input is of shape (batch_size, hidden_size), we need to add the time dimension

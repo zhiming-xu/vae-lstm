@@ -4,7 +4,7 @@ import gluonnlp as nlp
 DATA_DIR = 'data/'
 FILES = ['train_source.txt', 'train_target.txt']
 
-def _load_dataset(src_name, tgt_name, length=5000):
+def _load_dataset(src_name, tgt_name, length=None):
     '''
     src_name: filename of source sentence, tgt_name: filename of target sentence
     '''
@@ -13,7 +13,7 @@ def _load_dataset(src_name, tgt_name, length=5000):
         tgt_list = [line[:-1] for line in f_tgt]
     return [pair for pair in zip(src_list, tgt_list)][:length]
 
-def get_dataset_str(folder='mscoco', length=5000):
+def get_dataset_str(folder='mscoco', length=None):
     '''
     the only interface this file exposes for other parts to get a dataset in string form
     '''

@@ -2,7 +2,7 @@
 from mxnet import autograd
 import time, logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s', \
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)-8s %(message)s', \
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=None):
@@ -34,13 +34,13 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=Non
     loss_val /= n_batch + 1
 
     if is_train:
-        logging.info('epoch %d, learning_rate %.5f \n\t train_loss %.4f' %
+        logging.info('epoch %d, learning_rate %.5f, train_loss %.4f' %
                     (epoch, trainer.learning_rate, loss_val))
         # declay lr
-        if epoch % 2 == 0:
+        if epoch % 4 == 0:
             trainer.set_learning_rate(trainer.learning_rate * 0.9)
     else:
-        logging.info('\t valid_loss %.4f' % (loss_val))
+        logging.info('valid_loss %.4f' % (loss_val))
 
 def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ctx):
     '''
@@ -57,4 +57,4 @@ def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ct
         one_epoch(dataloader_test, model, trainer, ctx, is_train, epoch)
         end = time.time()
         logging.info('time %.2f sec' % (end-start))
-        logging.info("*"*80)
+        logging.info("*"*50)
