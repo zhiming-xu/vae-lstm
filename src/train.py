@@ -57,4 +57,4 @@ def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ct
         one_epoch(dataloader_test, model, trainer, ctx, is_train, epoch)
         end = time.time()
         logging.info('time %.2f sec' % (end-start))
-        logging.info("*"*50)
+        logging.info("*"*48)
