@@ -95,7 +95,7 @@ class VAE_LSTM(nn.Block):
         with self.name_scope():
             self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.hidden_size = hidden_size
-            self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - mu * mu - nd.exp(sg), axis=1)
+            self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - nd.square(mu) - nd.exp(sg), axis=-1)
             self.log_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(hidden_size=hidden_size, num_layers=num_layers, \
                                       dropout=dropout, bidir=bidir)

@@ -1,9 +1,6 @@
 # visual studio code related
 .vscode/
 
-# needed for linux
-bert/
-
 # acc histories and model params
 /results
 *.params
@@ -11,9 +8,13 @@ bert/
 # data
 data/
 !data/README
+*.zip
 
 # test files
 test*
+
+# references
+ref*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

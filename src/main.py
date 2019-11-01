@@ -8,14 +8,18 @@ import gluonnlp as nlp
 from mxnet import nd, gluon
 import json, argparse
 
-# parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser()
+parser.add_argument('--inference', action='store_true', help='Do inference only')
+
+args = parser.parse_args()
 
 def generate(model, original_sts, sample, vocab, max_len, ctx):
     '''
     use the model to generate a paraphrase sentence
     '''
     original_tk = vocab[original_sts.lower().split(' ')]
-    original_tk = nlp.data.PadSequence(length=max_len, pad_val=0)(original_tk)
+    # original_tk = nlp.data.PadSequence(length=max_len, pad_val=0)(original_tk)
+    original_tk = nlp.data.ClipSequence(max_len)(original_tk)
     original_tk = nd.array(original_tk, ctx=model_ctx).expand_dims(axis=0) # add N
     original_emb = model.embedding_layer(original_tk).swapaxes(0, 1)    # NTC to TNC
     start_state = model.encoder.original_encoder.begin_state(batch_size=1, ctx=ctx)
@@ -26,7 +30,7 @@ def generate(model, original_sts, sample, vocab, max_len, ctx):
     for _ in range(max_len):
         output, last_state = model.decoder(last_state, decoded, sample)
         decoded = output.argmax(axis=2)
-        pred = decoded.squeeze(axis=0).astype('int32').asscalar()
+        pred = int(decoded.squeeze(axis=0).asscalar())
         decoded = model.embedding_layer(decoded).swapaxes(0, 1)
         if pred == vocab['eos']:
             break
@@ -35,18 +39,17 @@ def generate(model, original_sts, sample, vocab, max_len, ctx):
 
 
 if __name__ == '__main__':
-    test = False
-    if test:
+    if args.inference:
         with open('data/vocab.json', 'r') as f:
             vocab = nlp.Vocab.from_json(json.load(f))
-        model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=3)
+        model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
         model.load_parameters('vae-lstm.params', ctx=model_ctx)
         sample = nd.normal(loc=0, scale=1, shape=(1, 256), ctx=model_ctx)
         original_sts = 'a brown cat be sitting on the mat'
-        generate(model, original_sts, sample, vocab, 25, model_ctx)
+        print('Result:', generate(model, original_sts, sample, vocab, 25, model_ctx))
     else:
         # load train, valid dataset
-        train_dataset_str, valid_dataset_str = get_dataset_str(length=10000)
+        train_dataset_str, valid_dataset_str = get_dataset_str(length=7000)
         train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
                                     clip_length=25, vocab_size=50000, batch_size=64)
         # save the vocabulary for use when generating
