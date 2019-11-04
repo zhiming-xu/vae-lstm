@@ -10,12 +10,14 @@ import json, argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--inference', action='store_true', help='do inference only')
+parser.add_argument('--org_sts', type=str, help='original sentence')
+parser.add_argument('--prp_sts', type=str, help='paraphrase sentence')
 parser.add_argument('--dataset', type=str, default='mscoco', help='paraphrase dataset used')
 parser.add_argument('--nsample', type=int, default=None, help='number of training \
                      samples used')
-parser.add_argument('--org_sts', type=str, help='original sentence')
-parser.add_argument('--prp_sts', type=str, help='paraphrase sentence')
 parser.add_argument('--nepoch', type=int, default=100, help='num of train epoch')
+parser.add_argument('--batch_size', type=int, default=64, help='train batch size')
+parser.add_argument('--seq_len', type=int, default=25, help='max clipping sequence length')
 
 args = parser.parse_args()
 
@@ -76,7 +78,8 @@ if __name__ == '__main__':
         train_dataset_str, valid_dataset_str = get_dataset_str(folder=args.dataset, \
                                                                length=args.nsample)
         train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
-                                    clip_length=25, vocab_size=50000, batch_size=64)
+                                                   clip_length=args.seq_len, \
+                                                   vocab_size=50000, batch_size=64)
         # save the vocabulary for use when generating
         vocab_js = vocab.to_json()
         with open('data/vocab.json', 'w') as f:
@@ -89,6 +92,8 @@ if __name__ == '__main__':
         model.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
         model.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer and training
-        trainer = gluon.Trainer(model.collect_params(), 'adam', {'learning_rate': 3e-4})
+        trainer = gluon.Trainer(model.collect_params(), 'sgd', \
+                               {'learning_rate': 1e-2, 'clip_gradient': 5., \
+                                'wd': 2e-5})
         train_valid(train_ld, valid_ld, model, trainer, num_epoch=args.nepoch, ctx=model_ctx)
         model.save_parameters('vae-lstm.params')

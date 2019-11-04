@@ -19,5 +19,5 @@ def get_dataset_str(folder='mscoco', length=None):
     '''
     paths = [DATA_DIR + folder + '/' + filename for filename in FILES]
     dataset_str = _load_dataset(*paths, length=length)
-    train_dataset_str, valid_dataset_str = nlp.data.train_valid_split(dataset_str, valid_ratio=.1)
+    train_dataset_str, valid_dataset_str = nlp.data.train_valid_split(dataset_str)
     return train_dataset_str, valid_dataset_str
