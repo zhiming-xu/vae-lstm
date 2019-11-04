@@ -9,7 +9,12 @@ from mxnet import nd, gluon
 import json, argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--inference', action='store_true', help='Do inference only')
+parser.add_argument('--inference', action='store_true', help='do inference only')
+parser.add_argument('--dataset', type=str, default='mscoco', help='paraphrase dataset used')
+parser.add_argument('--train_num', type=int, default=None, help='number of training \
+                     samples')
+parser.add_argument('--org_sts', type=str, required=True, help='original sentence')
+parser.add_argument('--prp_sts', type=str, required=True, help='paraphrase sentence')
 
 args = parser.parse_args()
 
@@ -60,13 +65,15 @@ if __name__ == '__main__':
         model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
         model.load_parameters('vae-lstm.params', ctx=model_ctx)
         sample = nd.normal(loc=0, scale=1, shape=(1, 256), ctx=model_ctx)
-        original_sts = 'a very clean and well decorated empty bathroom'
-        paraphrase_sts = 'a bathroom with blue paint on the walls above it'
-        print('Result:', generate_v2(model, original_sts, paraphrase_sts, sample, \
-                                     vocab, max_len=25, ctx=model_ctx))
+        original_sts, paraphrase_sts = args.org_sts, args.prp_sts
+        print('\033[33mOriginal: \033[34m%s\033[0m' % original_sts)
+        print('\033[33mParaphrase: \033[34m%s\033[0m' % paraphrase_sts)
+        print('\033[31mResult: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
+              paraphrase_sts, sample, vocab, max_len=25, ctx=model_ctx))
     else:
         # load train, valid dataset
-        train_dataset_str, valid_dataset_str = get_dataset_str(length=7000)
+        train_dataset_str, valid_dataset_str = get_dataset_str(folder=args.dataset, \
+                                                               length=args.train_num)
         train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
                                     clip_length=25, vocab_size=50000, batch_size=64)
         # save the vocabulary for use when generating
@@ -81,6 +88,6 @@ if __name__ == '__main__':
         model.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
         model.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer and training
-        trainer = gluon.Trainer(model.collect_params(), 'adam', {'learning_rate': 3e-4})
+        trainer = gluon.Trainer(model.collect_params(), 'adam', {'learning_rate': 5e-4})
         train_valid(train_ld, valid_ld, model, trainer, num_epoch=100, ctx=model_ctx)
         model.save_parameters('vae-lstm.params')

@@ -58,3 +58,5 @@ def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ct
         end = time.time()
         logging.info('time %.2f sec' % (end-start))
         logging.info("*"*48)
+        if epoch % 20 == 0:
+            model.save_parameters(time.asctime()+'.params')
