@@ -11,10 +11,11 @@ import json, argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--inference', action='store_true', help='do inference only')
 parser.add_argument('--dataset', type=str, default='mscoco', help='paraphrase dataset used')
-parser.add_argument('--train_num', type=int, default=None, help='number of training \
-                     samples')
-parser.add_argument('--org_sts', type=str, required=True, help='original sentence')
-parser.add_argument('--prp_sts', type=str, required=True, help='paraphrase sentence')
+parser.add_argument('--nsample', type=int, default=None, help='number of training \
+                     samples used')
+parser.add_argument('--org_sts', type=str, help='original sentence')
+parser.add_argument('--prp_sts', type=str, help='paraphrase sentence')
+parser.add_argument('--nepoch', type=int, default=100, help='num of train epoch')
 
 args = parser.parse_args()
 
@@ -73,7 +74,7 @@ if __name__ == '__main__':
     else:
         # load train, valid dataset
         train_dataset_str, valid_dataset_str = get_dataset_str(folder=args.dataset, \
-                                                               length=args.train_num)
+                                                               length=args.nsample)
         train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
                                     clip_length=25, vocab_size=50000, batch_size=64)
         # save the vocabulary for use when generating
@@ -81,7 +82,7 @@ if __name__ == '__main__':
         with open('data/vocab.json', 'w') as f:
             json.dump(vocab_js, f)
         # set embedding
-        vocab.set_embedding(nlp.embedding.GloVe(source='glove.42B.300d'))
+        vocab.set_embedding(nlp.embedding.GloVe(source='glove.6B.300d'))
         # create model
         model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
         model.initialize(init=mx.initializer.Xavier(magnitude=1), ctx=model_ctx)
@@ -89,5 +90,5 @@ if __name__ == '__main__':
         model.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer and training
         trainer = gluon.Trainer(model.collect_params(), 'adam', {'learning_rate': 5e-4})
-        train_valid(train_ld, valid_ld, model, trainer, num_epoch=100, ctx=model_ctx)
+        train_valid(train_ld, valid_ld, model, trainer, num_epoch=args.nepoch, ctx=model_ctx)
         model.save_parameters('vae-lstm.params')
