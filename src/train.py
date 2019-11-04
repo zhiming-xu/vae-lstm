@@ -37,10 +37,11 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=Non
         logging.info('epoch %d, learning_rate %.5f, train_loss %.4f' %
                     (epoch, trainer.learning_rate, loss_val))
         # declay lr
-        if epoch % 4 == 0:
+        if epoch % 5 == 0:
             trainer.set_learning_rate(trainer.learning_rate * 0.9)
     else:
         logging.info('valid_loss %.4f' % (loss_val))
+    return loss_val
 
 def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ctx):
     '''
@@ -54,9 +55,9 @@ def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ct
 
         # valid
         is_train = False
-        one_epoch(dataloader_test, model, trainer, ctx, is_train, epoch)
+        loss = one_epoch(dataloader_test, model, trainer, ctx, is_train, epoch)
         end = time.time()
         logging.info('time %.2f sec' % (end-start))
         logging.info("*"*48)
         if epoch % 20 == 0:
-            model.save_parameters(time.asctime()+'.params')
+            model.save_parameters('./params/vae-lstm%.4f.params' % loss)

@@ -89,6 +89,6 @@ if __name__ == '__main__':
         model.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
         model.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer and training
-        trainer = gluon.Trainer(model.collect_params(), 'adam', {'learning_rate': 5e-4})
+        trainer = gluon.Trainer(model.collect_params(), 'adam', {'learning_rate': 3e-4})
         train_valid(train_ld, valid_ld, model, trainer, num_epoch=args.nepoch, ctx=model_ctx)
         model.save_parameters('vae-lstm.params')
