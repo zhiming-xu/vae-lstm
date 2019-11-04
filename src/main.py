@@ -37,6 +37,21 @@ def generate(model, original_sts, sample, vocab, max_len, ctx):
         predict_tokens.append(pred)
     return ' '.join(vocab.to_tokens(predict_tokens))
 
+def generate_v2(model, original_sts, paraphrase_sts, sample, vocab, max_len, ctx):
+    '''
+    use the model to generate a paraphrase sentence, with *both* original and
+    paraphrase input
+    '''
+    original_tk = vocab[original_sts.lower().split(' ')]
+    # original_tk = nlp.data.PadSequence(length=max_len, pad_val=0)(original_tk)
+    original_tk = nlp.data.ClipSequence(max_len)(original_tk)
+    original_tk = nd.array(original_tk, ctx=model_ctx).expand_dims(axis=0) # add N
+    paraphrase_tk = vocab[paraphrase_sts.lower().split(' ')]
+    paraphrase_tk = nd.array(paraphrase_tk, ctx=model_ctx).expand_dims(axis=0)
+    model(original_tk, paraphrase_tk)
+    output = model.output.squeeze(axis=0)   # output is of shape T[vocab_size]
+    idx_list = nd.argmax(output, axis=-1).astype('int32').asnumpy().tolist()
+    return ' '.join(vocab.to_tokens(idx_list))
 
 if __name__ == '__main__':
     if args.inference:
@@ -45,8 +60,10 @@ if __name__ == '__main__':
         model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
         model.load_parameters('vae-lstm.params', ctx=model_ctx)
         sample = nd.normal(loc=0, scale=1, shape=(1, 256), ctx=model_ctx)
-        original_sts = 'a brown cat be sitting on the mat'
-        print('Result:', generate(model, original_sts, sample, vocab, 25, model_ctx))
+        original_sts = 'a very clean and well decorated empty bathroom'
+        paraphrase_sts = 'a bathroom with blue paint on the walls above it'
+        print('Result:', generate_v2(model, original_sts, paraphrase_sts, sample, \
+                                     vocab, max_len=25, ctx=model_ctx))
     else:
         # load train, valid dataset
         train_dataset_str, valid_dataset_str = get_dataset_str(length=7000)

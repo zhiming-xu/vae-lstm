@@ -116,6 +116,7 @@ class VAE_LSTM(nn.Block):
         kl_loss = -self.kl_div(mu, sg)
         # decode the sample
         y, _ = self.decoder(last_state, paraphrase_emb, latent_input)
+        self.output = y.swapaxes(0, 1)
         # y is the decoded full sentence, of layout TNC, need to change to NTC
         log_loss = self.log_loss(y.swapaxes(0, 1), paraphrase_idx)
         loss = log_loss + kl_loss
