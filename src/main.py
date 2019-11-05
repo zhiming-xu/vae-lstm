@@ -10,6 +10,7 @@ import json, argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gen', action='store_true', help='generate only')
+parser.add_argument('--from_param', action='store_true', help='start from existent params')
 parser.add_argument('--param', type=str, help='pretrained parameters')
 parser.add_argument('--org_sts', type=str, help='original sentence for generation')
 parser.add_argument('--prp_sts', type=str, help='paraphrase sentence for generation')
@@ -83,7 +84,13 @@ if __name__ == '__main__':
         vocab.set_embedding(nlp.embedding.GloVe(source='glove.6B.300d'))
         # create model
         model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
-        model.initialize(init=mx.initializer.Xavier(magnitude=1), ctx=model_ctx)
+        if args.from_param:
+            # start from previous params
+            model.load_parameters(args.param, ctx=model_ctx)
+        else:
+            # new start
+            model.initialize(init=mx.initializer.Xavier(magnitude=1), ctx=model_ctx)
+        # embedding layer from vocab
         model.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
         model.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer and training
@@ -91,4 +98,4 @@ if __name__ == '__main__':
                                {'learning_rate': 3e-4, 'clip_gradient': 5., \
                                 'wd': 2e-5})
         train_valid(train_ld, valid_ld, model, trainer, num_epoch=args.nepoch, ctx=model_ctx)
-        model.save_parameters('vae-lstm.params')
+        model.save_parameters('data/vae-lstm.params')
