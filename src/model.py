@@ -107,7 +107,7 @@ class VAEDecoder(nn.Block):
         # `paraphrase_input` is a word predicted from the last call of this method
         decoder_input = nd.concat(paraphrase_input, latent_input, dim=-1)
         decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
-        decoder_output = self.dense_output(decoder_input)
+        decoder_output = self.dense_output(decoder_output)
         return decoder_output, decoder_state
 
 class VAE_LSTM(nn.Block):

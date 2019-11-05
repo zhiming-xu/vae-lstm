@@ -30,7 +30,7 @@ def generate(model, original_sts, sample, vocab, ctx, max_len=25):
     '''
     original_idx = vocab[original_sts.lower().split(' ')]
     original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
-    last_idx = nd.array(vocab['<bos>'], ctx=model_ctx).expand_dims(axis=0)
+    last_idx = nd.array([vocab['<bos>']], ctx=model_ctx).expand_dims(axis=0)
     pred = model.predict(original_idx, last_idx, sample, max_len)
     # eliminate all tokens after `eos` in predicted sentence
     pred = pred[:pred.index(vocab['<eos>'])]
