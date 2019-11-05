@@ -22,41 +22,25 @@ parser.add_argument('--seq_len', type=int, default=25, help='max clipping sequen
 args = parser.parse_args()
 
 def generate(model, original_sts, sample, vocab, max_len, ctx):
+    '''FIXME this way of generation does not work now
+    use the model to generate a paraphrase sentence, max_len is the max length of
+    generated sentence
     '''
-    use the model to generate a paraphrase sentence
-    '''
-    original_tk = vocab[original_sts.lower().split(' ')]
-    # original_tk = nlp.data.PadSequence(length=max_len, pad_val=0)(original_tk)
-    original_tk = nlp.data.ClipSequence(max_len)(original_tk)
-    original_tk = nd.array(original_tk, ctx=model_ctx).expand_dims(axis=0) # add N
-    original_emb = model.embedding_layer(original_tk).swapaxes(0, 1)    # NTC to TNC
-    start_state = model.encoder.original_encoder.begin_state(batch_size=1, ctx=ctx)
-    _, last_state = model.encoder.original_encoder(original_emb, start_state)
-    decoded = nd.array([vocab['bos']], ctx=ctx).expand_dims(axis=0)
-    decoded = model.embedding_layer(decoded).swapaxes(0, 1) # idx to emb, NTC to TNC
-    predict_tokens = []
-    for _ in range(max_len):
-        output, last_state = model.decoder(last_state, decoded, sample)
-        decoded = output.argmax(axis=2)
-        pred = int(decoded.squeeze(axis=0).asscalar())
-        decoded = model.embedding_layer(decoded).swapaxes(0, 1)
-        if pred == vocab['eos']:
-            break
-        predict_tokens.append(pred)
-    return ' '.join(vocab.to_tokens(predict_tokens))
+    original_idx = vocab[original_sts.lower().split(' ')]
+    original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
+    pred = model.predict(original_idx, sample, vocab['bos'], max_len)
+    return ' '.join(vocab.to_tokens([pred]))
 
-def generate_v2(model, original_sts, paraphrase_sts, sample, vocab, max_len, ctx):
+def generate_v2(model, original_sts, paraphrase_sts, sample, vocab, ctx):
     '''
     use the model to generate a paraphrase sentence, with *both* original and
     paraphrase input
     '''
-    original_tk = vocab[original_sts.lower().split(' ')]
-    # original_tk = nlp.data.PadSequence(length=max_len, pad_val=0)(original_tk)
-    original_tk = nlp.data.ClipSequence(max_len)(original_tk)
-    original_tk = nd.array(original_tk, ctx=model_ctx).expand_dims(axis=0) # add N
-    paraphrase_tk = vocab[paraphrase_sts.lower().split(' ')]
-    paraphrase_tk = nd.array(paraphrase_tk, ctx=model_ctx).expand_dims(axis=0)
-    model(original_tk, paraphrase_tk)
+    original_idx = vocab[original_sts.lower().split(' ')]
+    original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
+    paraphrase_idx = vocab[paraphrase_sts.lower().split(' ')]
+    paraphrase_idx = nd.array(paraphrase_idx, ctx=model_ctx).expand_dims(axis=0)
+    model(original_idx, paraphrase_idx)
     output = model.output.squeeze(axis=0)   # output is of shape T[vocab_size]
     idx_list = nd.argmax(output, axis=-1).astype('int32').asnumpy().tolist()
     return ' '.join(vocab.to_tokens(idx_list))
@@ -72,7 +56,7 @@ if __name__ == '__main__':
         print('\033[33mOriginal: \033[34m%s\033[0m' % original_sts)
         print('\033[33mParaphrase: \033[34m%s\033[0m' % paraphrase_sts)
         print('\033[31mResult: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
-              paraphrase_sts, sample, vocab, max_len=25, ctx=model_ctx))
+              paraphrase_sts, sample, vocab, ctx=model_ctx))
     else:
         # load train, valid dataset
         train_dataset_str, valid_dataset_str = get_dataset_str(folder=args.dataset, \

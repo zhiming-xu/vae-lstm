@@ -49,6 +49,16 @@ class VAEEncoder(nn.Block):
         mu = self.output_mu(paraphrase_encoded)[-1] # \mu, mean of sampled distribution
         sg = self.output_sg(paraphrase_encoded)[-1] # \sg, std dev of sampler distribution based on
         return mu, sg, original_last_state
+    
+    def encode(self, original_input):
+        '''
+        this function is used when generating, return the last state of lstm when doing original
+        sentence embedding
+        '''
+        # batch_size is 1 because we only predict for one sample at a time
+        start_state = self.original_encoder.begin_state(batch_size=1, ctx=model_ctx)
+        _, original_last_state = self.original_encoder(original_input, start_state)
+        return original_last_state
         
 class VAEDecoder(nn.Block):
     '''
@@ -73,7 +83,7 @@ class VAEDecoder(nn.Block):
         forward pass, inputs are last states (a list of last hidden output and last memory cell)
         paraphrase sentence embedding and latent output of encoder, i.e., z (mu sg when training,
         sampled from N(0, 1) when testing)
-        for the first step, last_state is the last state of the original sentence encoder
+        for the first step, `last_state` is the last state of the original sentence encoder
         '''
         # latent_input is of shape (batch_size, hidden_size), we need to add the time dimension
         # and repeat itself T times to concat to paraphrase embedding, layout TN[hiddent_size]
@@ -84,6 +94,20 @@ class VAEDecoder(nn.Block):
         decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
         # since we calculate KL-loss with layout TNC, we will keep it this way
         decoder_output = self.dense_output(decoder_output)
+        return decoder_output, decoder_state
+
+    def decode(self, last_state, paraphrase_input, latent_input):
+        '''
+        this method is used to generate sentence. at first, `last_state` is the output of original
+        encoding lstm, then it is the hidden state of self.decoder. `latent_input` is a radomly
+        sampled vector from standard normal distribution N(0, 1). this method will return both a 
+        word prediction over voab, and its hidden state
+        '''
+        latent_input = latent_input.expand_dims(axis=0)
+        # `paraphrase_input` is a word predicted from the last call of this method
+        decoder_input = nd.concat(paraphrase_input, latent_input, dim=-1)
+        decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
+        decoder_output = self.dense_output(decoder_input)
         return decoder_output, decoder_state
 
 class VAE_LSTM(nn.Block):
@@ -121,3 +145,17 @@ class VAE_LSTM(nn.Block):
         log_loss = self.log_loss(y.swapaxes(0, 1), paraphrase_idx)
         loss = log_loss + kl_loss
         return loss
+
+    def predict(self, original_idx, last_tk, normal_distr, max_len):
+        '''
+        this method is for predicting a paraphrase sentence
+        '''
+        original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
+        last_state = self.encoder.encode(original_emb)
+        pred_tk = []
+        for _ in max_len:
+            # pred: probablity distr of words in vocab
+            pred, last_state = self.decoder.decode(last_state, last_tk, normal_distr)
+            # we will just pred `max_len` tokens, and address eos token outside this method
+            pred_tk.append(int(pred.astype('int32').asscalar()))
+        return pred_tk
