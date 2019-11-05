@@ -146,16 +146,19 @@ class VAE_LSTM(nn.Block):
         loss = log_loss + kl_loss
         return loss
 
-    def predict(self, original_idx, last_tk, normal_distr, max_len):
+    def predict(self, original_idx, last_idx, normal_distr, max_len):
         '''
         this method is for predicting a paraphrase sentence
         '''
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
         last_state = self.encoder.encode(original_emb)
         pred_tk = []
+        # we will just pred `max_len` tokens, and address <eos> token outside this method
         for _ in range(max_len):
+            # since T==1 and N==1, the swap is not necessary
+            last_emb = self.embedding_layer(last_idx)
             # pred: probablity distr of words in vocab
-            pred, last_state = self.decoder.decode(last_state, last_tk, normal_distr)
-            # we will just pred `max_len` tokens, and address eos token outside this method
-            pred_tk.append(int(pred.astype('int32').asscalar()))
+            pred, last_state = self.decoder.decode(last_state, last_emb, normal_distr)
+            last_idx = pred.argmax(axis=-1)  # a 1 * 1 ndarray
+            pred_tk.append(int(last_idx.squeeze().astype('int32').asscalar()))
         return pred_tk

@@ -1,8 +1,8 @@
 # !/usr/bin/env python3
 from util import get_dataset_str
 from preprocess import get_dataloader
-from model import VAE_LSTM
-from train import train_valid, model_ctx
+from model import VAE_LSTM, model_ctx
+from train import train_valid
 import mxnet as mx
 import gluonnlp as nlp
 from mxnet import nd, gluon
@@ -30,7 +30,8 @@ def generate(model, original_sts, sample, vocab, ctx, max_len=25):
     '''
     original_idx = vocab[original_sts.lower().split(' ')]
     original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
-    pred = model.predict(original_idx, vocab['<bos>'], sample, max_len)
+    last_idx = nd.array(vocab['<bos>'], ctx=model_ctx).expand_dims(axis=0)
+    pred = model.predict(original_idx, last_idx, sample, max_len)
     # eliminate all tokens after `eos` in predicted sentence
     pred = pred[:pred.index(vocab['<eos>'])]
     return ' '.join(vocab.to_tokens([pred]))
