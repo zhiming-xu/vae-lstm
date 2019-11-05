@@ -1,34 +1,38 @@
 # !/usr/bin/env python3
 from util import get_dataset_str
 from preprocess import get_dataloader
-from model import VAE_LSTM, model_ctx
-from train import train_valid
+from model import VAE_LSTM
+from train import train_valid, model_ctx
 import mxnet as mx
 import gluonnlp as nlp
 from mxnet import nd, gluon
 import json, argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--inference', action='store_true', help='do inference only')
-parser.add_argument('--org_sts', type=str, help='original sentence')
-parser.add_argument('--prp_sts', type=str, help='paraphrase sentence')
+parser.add_argument('--gen', action='store_true', help='generate only')
+parser.add_argument('--param', type=str, help='pretrained parameters')
+parser.add_argument('--org_sts', type=str, help='original sentence for generation')
+parser.add_argument('--prp_sts', type=str, help='paraphrase sentence for generation')
 parser.add_argument('--dataset', type=str, default='mscoco', help='paraphrase dataset used')
 parser.add_argument('--nsample', type=int, default=None, help='number of training \
                      samples used')
 parser.add_argument('--nepoch', type=int, default=100, help='num of train epoch')
 parser.add_argument('--batch_size', type=int, default=64, help='train batch size')
 parser.add_argument('--seq_len', type=int, default=25, help='max clipping sequence length')
+# parser.add_argument('--ctx', type=str, default='gpu', help='use cpu/gpu, gpu by default')
 
 args = parser.parse_args()
 
-def generate(model, original_sts, sample, vocab, max_len, ctx):
+def generate(model, original_sts, sample, vocab, ctx, max_len=25):
     '''FIXME this way of generation does not work now
     use the model to generate a paraphrase sentence, max_len is the max length of
     generated sentence
     '''
     original_idx = vocab[original_sts.lower().split(' ')]
     original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
-    pred = model.predict(original_idx, sample, vocab['bos'], max_len)
+    pred = model.predict(original_idx, vocab['<bos>'], sample, max_len)
+    # eliminate all tokens after `eos` in predicted sentence
+    pred = pred[:pred.index(vocab['<eos>'])]
     return ' '.join(vocab.to_tokens([pred]))
 
 def generate_v2(model, original_sts, paraphrase_sts, sample, vocab, ctx):
@@ -46,16 +50,19 @@ def generate_v2(model, original_sts, paraphrase_sts, sample, vocab, ctx):
     return ' '.join(vocab.to_tokens(idx_list))
 
 if __name__ == '__main__':
-    if args.inference:
+    if args.gen:
         with open('data/vocab.json', 'r') as f:
             vocab = nlp.Vocab.from_json(json.load(f))
+            
         model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
-        model.load_parameters('vae-lstm.params', ctx=model_ctx)
+        model.load_parameters(args.param, ctx=model_ctx)
         sample = nd.normal(loc=0, scale=1, shape=(1, 256), ctx=model_ctx)
         original_sts, paraphrase_sts = args.org_sts, args.prp_sts
         print('\033[33mOriginal: \033[34m%s\033[0m' % original_sts)
         print('\033[33mParaphrase: \033[34m%s\033[0m' % paraphrase_sts)
-        print('\033[31mResult: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
+        print('\033[31mResult 1: \033[35m%s\033[0m' % generate(model, original_sts, \
+                                                      sample, vocab, ctx=model_ctx))
+        print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
               paraphrase_sts, sample, vocab, ctx=model_ctx))
     else:
         # load train, valid dataset

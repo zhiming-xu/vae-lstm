@@ -153,7 +153,7 @@ class VAE_LSTM(nn.Block):
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
         last_state = self.encoder.encode(original_emb)
         pred_tk = []
-        for _ in max_len:
+        for _ in range(max_len):
             # pred: probablity distr of words in vocab
             pred, last_state = self.decoder.decode(last_state, last_tk, normal_distr)
             # we will just pred `max_len` tokens, and address eos token outside this method
