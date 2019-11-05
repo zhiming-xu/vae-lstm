@@ -33,7 +33,10 @@ def generate(model, original_sts, sample, vocab, ctx, max_len=25):
     last_idx = nd.array([vocab['<bos>']], ctx=model_ctx).expand_dims(axis=0)
     pred = model.predict(original_idx, last_idx, sample, max_len)
     # eliminate all tokens after `eos` in predicted sentence
-    pred = pred[:pred.index(vocab['<eos>'])]
+    try:
+        pred = pred[:pred.index(vocab['<eos>'])]
+    except ValueError:
+        pass
     return ' '.join(vocab.to_tokens([pred]))
 
 def generate_v2(model, original_sts, paraphrase_sts, sample, vocab, ctx):
@@ -61,8 +64,8 @@ if __name__ == '__main__':
         original_sts, paraphrase_sts = args.org_sts, args.prp_sts
         print('\033[33mOriginal: \033[34m%s\033[0m' % original_sts)
         print('\033[33mParaphrase: \033[34m%s\033[0m' % paraphrase_sts)
-        print('\033[31mResult 1: \033[35m%s\033[0m' % generate(model, original_sts, \
-                                                      sample, vocab, ctx=model_ctx))
+        # print('\033[31mResult 1: \033[35m%s\033[0m' % generate(model, original_sts, \
+        #                                               sample, vocab, ctx=model_ctx))
         print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
               paraphrase_sts, sample, vocab, ctx=model_ctx))
     else:
