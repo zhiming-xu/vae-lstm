@@ -6,7 +6,8 @@ import gluonnlp as nlp
 # import multiprocessing as mp
 import time, logging, itertools
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(module)s %(levelname)-8s %(message)s', \
+logging.basicConfig(filename='model.log', level=logging.INFO, \
+                    format='%(asctime)s %(module)s %(levelname)-8s %(message)s', \
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 def _clip_length(sample, clipper, tokenizer):
