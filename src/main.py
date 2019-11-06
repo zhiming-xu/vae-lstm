@@ -15,32 +15,33 @@ parser.add_argument('--param', type=str, help='pretrained parameters')
 parser.add_argument('--org_sts', type=str, help='original sentence for generation')
 parser.add_argument('--prp_sts', type=str, help='paraphrase sentence for generation')
 parser.add_argument('--dataset', type=str, default='mscoco', help='paraphrase dataset used')
-parser.add_argument('--nsample', type=int, default=None, help='number of training \
+parser.add_argument('--nsample', type=int, default=None, help='# of training \
                      samples used')
-parser.add_argument('--nepoch', type=int, default=100, help='num of train epoch')
+parser.add_argument('--nepoch', type=int, default=100, help='# of training epoch')
 parser.add_argument('--batch_size', type=int, default=64, help='train batch size')
-parser.add_argument('--seq_len', type=int, default=25, help='max clipping sequence length')
+parser.add_argument('--seq_len', type=int, default=25, help='max sequence length after clipping')
 # parser.add_argument('--ctx', type=str, default='gpu', help='use cpu/gpu, gpu by default')
 
 args = parser.parse_args()
 
-def generate(model, original_sts, sample, vocab, ctx, max_len=25):
+def generate(model, original_sts, paraphrase_sts, sample, vocab, ctx):
     '''FIXME this way of generation does not work now
     use the model to generate a paraphrase sentence, max_len is the max length of
     generated sentence
     '''
     original_idx = vocab[original_sts.lower().split(' ')]
     original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
-    last_idx = nd.array([vocab['<bos>']], ctx=model_ctx).expand_dims(axis=0)
-    pred = model.predict(original_idx, last_idx, sample, max_len)
+    paraphrase_idx = vocab[paraphrase_sts.lower().split(' ')]
+    paraphrase_idx = nd.array(paraphrase_idx, ctx=model_ctx).expand_dims(axis=0)
+    pred = model.predict(original_idx, paraphrase_idx, sample)
     # eliminate all tokens after `eos` in predicted sentence
     try:
         pred = pred[:pred.index(vocab['<eos>'])]
     except ValueError:
         pass
-    return ' '.join(vocab.to_tokens([pred]))
+    return ' '.join(vocab.to_tokens(pred))
 
-def generate_v2(model, original_sts, paraphrase_sts, sample, vocab, ctx):
+def generate_v2(model, original_sts, paraphrase_sts, vocab, ctx):
     '''
     use the model to generate a paraphrase sentence, with *both* original and
     paraphrase input
@@ -65,10 +66,10 @@ if __name__ == '__main__':
         original_sts, paraphrase_sts = args.org_sts, args.prp_sts
         print('\033[33mOriginal: \033[34m%s\033[0m' % original_sts)
         print('\033[33mParaphrase: \033[34m%s\033[0m' % paraphrase_sts)
-        # print('\033[31mResult 1: \033[35m%s\033[0m' % generate(model, original_sts, \
-        #                                               sample, vocab, ctx=model_ctx))
-        print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
+        print('\033[31mResult 1: \033[35m%s\033[0m' % generate(model, original_sts, \
               paraphrase_sts, sample, vocab, ctx=model_ctx))
+        print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
+              paraphrase_sts, vocab, ctx=model_ctx))
     else:
         # load train, valid dataset
         train_dataset_str, valid_dataset_str = get_dataset_str(folder=args.dataset, \

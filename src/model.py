@@ -55,8 +55,8 @@ class VAEEncoder(nn.Block):
         this function is used when generating, return the last state of lstm when doing original
         sentence embedding
         '''
-        # batch_size is 1 because we only predict for one sample at a time
-        start_state = self.original_encoder.begin_state(batch_size=1, ctx=model_ctx)
+        # batch_size -> T[N]C
+        start_state = self.original_encoder.begin_state(batch_size=original_input.shape[1], ctx=model_ctx)
         _, original_last_state = self.original_encoder(original_input, start_state)
         return original_last_state
         
@@ -98,13 +98,13 @@ class VAEDecoder(nn.Block):
 
     def decode(self, last_state, paraphrase_input, latent_input):
         '''
-        this method is used to generate sentence. at first, `last_state` is the output of original
-        encoding lstm, then it is the hidden state of self.decoder. `latent_input` is a radomly
+        this method is used to generate sentence. ~~at first, last_state` is the output of original
+        encoding lstm, then it is the hidden state of self.decoder.~~ `latent_input` is a radomly
         sampled vector from standard normal distribution N(0, 1). this method will return both a 
         word prediction over voab, and its hidden state
         '''
         latent_input = latent_input.expand_dims(axis=0)
-        # `paraphrase_input` is a word predicted from the last call of this method
+        # `paraphrase_input` is the sentence embedding
         decoder_input = nd.concat(paraphrase_input, latent_input, dim=-1)
         decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
         decoder_output = self.dense_output(decoder_output)
@@ -146,19 +146,14 @@ class VAE_LSTM(nn.Block):
         loss = log_loss + kl_loss
         return loss
 
-    def predict(self, original_idx, last_idx, normal_distr, max_len):
-        '''
+    def predict(self, original_idx, paraphrase_idx, normal_distr):
+        '''FIXME: this might be wrong
         this method is for predicting a paraphrase sentence
         '''
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
+        paraphrase_emb = self.embedding_layer(paraphrase_idx).swapaxes(0, 1)
         last_state = self.encoder.encode(original_emb)
-        pred_tk = []
         # we will just pred `max_len` tokens, and address <eos> token outside this method
-        for _ in range(max_len):
-            # since T==1 and N==1, the swap is not necessary
-            last_emb = self.embedding_layer(last_idx)
-            # pred: probablity distr of words in vocab
-            pred, last_state = self.decoder.decode(last_state, last_emb, normal_distr)
-            last_idx = pred.argmax(axis=-1)  # a 1 * 1 ndarray
-            pred_tk.append(int(last_idx.squeeze().astype('int32').asscalar()))
+        pred, _ = self.decoder(last_state, paraphrase_emb, normal_distr)
+        pred_tk = pred.argmax(axis=-1).squeeze().astype('int32').asnumpy().tolist()
         return pred_tk
