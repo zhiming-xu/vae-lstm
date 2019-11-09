@@ -64,32 +64,35 @@ class VAEDecoder(nn.Block):
     '''
     decoder part of the VAE model
     '''
-    def __init__(self, output_size, hidden_size, num_layers=3, dropout=.3, bidir=False, **kwargs):
+    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=3, dropout=.3, bidir=False, **kwargs):
         '''
         init this class, create relevant rnns, note: we will share the original sentence encoder
         between VAE encoder and VAE decoder
         '''
         super(VAEDecoder, self).__init__(**kwargs)
         with self.name_scope():
+            self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.paraphrase_decoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                                dropout=dropout, bidirectional=bidir, \
                                                prefix='paraphrase_sentence_decoder_VAEDecoder')
             # the `output_size` should be set eqaul to the vocab size (a probablity distribution
             # over all words in vocabulary)
-            self.dense_output = nn.Dense(units=output_size, activation='relu', flatten=False)
+            self.dense_output = nn.Dense(vocab_size, activation='relu', flatten=False)
 
-    def forward(self, last_state, last_input, latent_input):
+    def forward(self, last_state, last_idx, latent_input):
         '''
         forward pass, inputs are last states (a list of last hidden output and last memory cell)
         paraphrase sentence embedding and latent output of encoder, i.e., z (mu sg when training,
         sampled from N(0, 1) when testing)
         for the first step, `last_state` is the last state of the original sentence encoder
         '''
+        # from token_idx to embedding
+        last_emb = self.embedding_layer(last_idx)
         # latent_input is of shape (batch_size, hidden_size), we need to add the time dimension
         # and repeat itself T times to concat to paraphrase embedding, layout TN[hiddent_size]
-        latent_input = latent_input.expand_dims(axis=0).repeat(repeats=last_input.shape[0], axis=0)
+        latent_input = latent_input.expand_dims(axis=0).repeat(repeats=last_emb.shape[0], axis=0)
         # layout is TNC, so concat along the last (channel) dimension, layout TN[emb_size+hidden_size]
-        decoder_input = nd.concat(last_input, latent_input, dim=-1)
+        decoder_input = nd.concat(last_emb, latent_input, dim=-1)
         # decoder output is of shape TN[hidden_size]
         decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
         # since we calculate KL-loss with layout TNC, we will keep it this way
@@ -111,13 +114,14 @@ class VAE_LSTM(nn.Block):
             self.log_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(hidden_size=hidden_size, num_layers=num_layers, \
                                       dropout=dropout, bidir=bidir)
-            self.decoder = VAEDecoder(output_size=vocab_size, hidden_size=hidden_size, \
+            self.decoder = VAEDecoder(vocab_size=vocab_size, emb_size=emb_size, hidden_size=hidden_size, \
                                       num_layers=num_layers, dropout=dropout, bidir=bidir)
 
     def forward(self, original_idx, paraphrase_idx):
         # from idx to sentence embedding
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1) # from NTC to TNC
-        paraphrase_emb = self.embedding_layer(paraphrase_idx).swapaxes(0, 1) # same as above
+        # we do not need to include bos and eos token in embedding
+        paraphrase_emb = self.embedding_layer(paraphrase_idx[:, 1:-1]).swapaxes(0, 1) # same as above
         # encoder part
         mu, sg, last_state = self.encoder(original_emb, paraphrase_emb)
         # sample from Gaussian distribution N(0, 1), of the sample shape to mu/lv
@@ -126,11 +130,15 @@ class VAE_LSTM(nn.Block):
         # the KL Div should be calculated between the sample from N(0, 1), and the distribution after
         # Parameterization Trick, negation since we want it to be small
         kl_loss = -self.kl_div(mu, sg)
+        # first paraphrase_input should be the bos token
+        last_idx = paraphrase_idx[:, 0:1]
+        log_loss = 0
         # decode the sample
-        y, _ = self.decoder(last_state, paraphrase_emb, latent_input)
-        self.output = y.swapaxes(0, 1)
+        for pos in range(paraphrase_idx.shape[0]-1):
+            y, last_state = self.decoder(last_state, last_idx, latent_input)
+            last_idx = y.argmax(axis=-1)
+            log_loss += self.log_loss(y.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
         # y is the decoded full sentence, of layout TNC, need to change to NTC
-        log_loss = self.log_loss(y.swapaxes(0, 1), paraphrase_idx)
         loss = log_loss + kl_loss
         return loss
 

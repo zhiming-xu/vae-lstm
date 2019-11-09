@@ -52,7 +52,7 @@ def _tk2idx(sample, vocab):
     '''
     token to index for one sample
     '''
-    return vocab[sample[0]], vocab[sample[1]]
+    return vocab[sample[0]], [vocab['<bos>']] + vocab[sample[1]] + [vocab['<eos>']]
 
 def _token_to_index(dataset_tk, vocab):
     '''
