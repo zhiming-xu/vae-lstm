@@ -19,7 +19,8 @@ parser.add_argument('--nsample', type=int, default=None, help='# of training sam
 parser.add_argument('--nepoch', type=int, default=100, help='# of training epoch')
 parser.add_argument('--batch_size', type=int, default=64, help='train batch size')
 parser.add_argument('--seq_len', type=int, default=25, help='max sequence length after clipping')
-# parser.add_argument('--ctx', type=str, default='gpu', help='use cpu/gpu, gpu by default')
+parser.add_argument('--lr', type=float, default=3e-4, help='learning rate')
+parser.add_argument('--clip_grad', type=float, default=2., help='clipped gradient')
 
 args = parser.parse_args()
 
@@ -97,7 +98,7 @@ if __name__ == '__main__':
         model.decoder.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer and training
         trainer = gluon.Trainer(model.collect_params(), 'adam', \
-                               {'learning_rate': 3e-4, 'clip_gradient': 2.5, \
+                               {'learning_rate': args.lr, 'clip_gradient': args.clip_grad, \
                                 'wd': 2e-5})
         train_valid(train_ld, valid_ld, model, trainer, num_epoch=args.nepoch, ctx=model_ctx)
         model.save_parameters('data/vae-lstm.params')
