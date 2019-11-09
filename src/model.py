@@ -144,15 +144,19 @@ class VAE_LSTM(nn.Block):
         loss = log_loss + kl_loss
         return loss
 
-    def predict(self, original_idx, paraphrase_idx, normal_distr, max_len=25):
-        '''FIXME: this might be wrong
+    def predict(self, original_idx, normal_distr, bos, eos, max_len=25):
+        '''
         this method is for predicting a paraphrase sentence
         '''
-        last_input = nd.zeros(shape=(1, 1, self.emb_size), ctx=model_ctx)
+        # 2 is for <bos>, might set as a param later
+        last_idx = nd.array([bos]).expand_dims(axis=0)
         last_state = self.encoder.encode(original_idx)
-        # we will just pred `max_len` tokens, and address <eos> token outside this method
-        pred_tk = []
+        # predict a token list of at most max_len tokens
+        pred_tks = []
         for _ in range(max_len):
-            pred, last_state = self.decoder(last_state, last_input, normal_distr)
-            pred_tk.append(int(pred.argmax(axis=-1).squeeze().astype('int32').asscalar()))
-        return pred_tk
+            pred, last_state = self.decoder(last_state, last_idx, normal_distr)
+            pred_tk = int(pred.argmax(axis=-1).squeeze().astype('int32').asscalar())
+            if pred_tk == eos:
+                break
+            pred_tks.append(pred_tk)
+        return pred_tks

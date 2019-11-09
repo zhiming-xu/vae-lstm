@@ -33,16 +33,11 @@ def generate(model, original_sts, paraphrase_sts, sample, vocab, ctx):
     original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
     paraphrase_idx = vocab[paraphrase_sts.lower().split(' ')]
     paraphrase_idx = nd.array(paraphrase_idx, ctx=model_ctx).expand_dims(axis=0)
-    pred = model.predict(original_idx, paraphrase_idx, sample)
-    # eliminate all tokens after `eos` in predicted sentence
-    try:
-        pred = pred[:pred.index(vocab['<eos>'])]
-    except ValueError:
-        pass
+    pred = model.predict(original_idx, sample, vocab['<bos>'], vocab['<eos>'])
     return ' '.join(vocab.to_tokens(pred))
 
 def generate_v2(model, original_sts, paraphrase_sts, vocab, ctx):
-    '''
+    '''TODO: this is the wrong way, to be deleted later
     use the model to generate a paraphrase sentence, with *both* original and
     paraphrase input
     '''
@@ -68,8 +63,8 @@ if __name__ == '__main__':
         print('\033[33mParaphrase: \033[34m%s\033[0m' % paraphrase_sts)
         print('\033[31mResult 1: \033[35m%s\033[0m' % generate(model, original_sts, \
               paraphrase_sts, sample, vocab, ctx=model_ctx))
-        print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
-              paraphrase_sts, vocab, ctx=model_ctx))
+        # print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
+        #      paraphrase_sts, vocab, ctx=model_ctx))
     else:
         # load train, valid dataset
         train_dataset_str, valid_dataset_str = get_dataset_str(folder=args.dataset, \

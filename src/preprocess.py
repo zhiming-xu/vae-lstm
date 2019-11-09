@@ -87,8 +87,8 @@ def _get_batch_dataloader(dataset_idx, batch_size=None, sampler=None):
     batchify the dataset whose row are [src_idx, tgt_idx], batch size is set to batch_size
     '''
     batchify_fn = nlp.data.batchify.Tuple(
-        nlp.data.batchify.Pad(axis=0, pad_val=0),
-        nlp.data.batchify.Pad(axis=0, pad_val=0)
+        nlp.data.batchify.Pad(axis=0, pad_val=3),   # pad <eos> token
+        nlp.data.batchify.Pad(axis=0, pad_val=3)    # pad <eos> token
     )
 
     if sampler:
