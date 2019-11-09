@@ -2,9 +2,13 @@
 from mxnet import autograd
 import time, logging
 
-logging.basicConfig(filename='model.log', level=logging.INFO, \
+logging.basicConfig(level=logging.INFO, \
                     format='%(asctime)s %(module)s %(levelname)-8s %(message)s', \
-                    datefmt='%Y-%m-%d %H:%M:%S')
+                    datefmt='%Y-%m-%d %H:%M:%S', \
+                    handlers=[
+                        logging.FileHandler("vae-lstm.log"),
+                        logging.StreamHandler()
+                    ])
 
 def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=None):
     '''
@@ -32,7 +36,7 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=Non
         loss_val += batch_loss
 
     # metric
-    loss_val /= n_batch + 1
+    loss_val /= (n_batch + 1)
 
     if is_train:
         logging.info('epoch %d, learning_rate %.5f, train_loss %.4f' %
