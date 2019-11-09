@@ -90,9 +90,11 @@ if __name__ == '__main__':
         else:
             # new start
             model.initialize(init=mx.initializer.Xavier(magnitude=1), ctx=model_ctx)
-        # embedding layer from vocab
-        model.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
-        model.embedding_layer.collect_params().setattr('grad_req', 'null')
+        # embedding layer for idx2vec, intentionally set in both decoder&encoder
+        model.encoder.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
+        model.decoder.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
+        model.encoder.embedding_layer.collect_params().setattr('grad_req', 'null')
+        model.decoder.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer and training
         trainer = gluon.Trainer(model.collect_params(), 'adam', \
                                {'learning_rate': 3e-4, 'clip_gradient': 5., \

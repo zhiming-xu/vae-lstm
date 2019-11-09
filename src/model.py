@@ -60,8 +60,8 @@ class VAEEncoder(nn.Block):
         '''
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
         # batch_size -> T[N]C
-        start_state = self.original_encoder.begin_state(batch_size=original_input.shape[1], ctx=model_ctx)
-        _, original_last_state = self.original_encoder(original_input, start_state)
+        start_state = self.original_encoder.begin_state(batch_size=original_idx.shape[0], ctx=model_ctx)
+        _, original_last_state = self.original_encoder(original_emb, start_state)
         return original_last_state
         
 class VAEDecoder(nn.Block):
@@ -138,8 +138,8 @@ class VAE_LSTM(nn.Block):
         # decode the sample
         for pos in range(paraphrase_idx.shape[-1]-1):
             y, last_state = self.decoder(last_state, last_idx, latent_input)
-            last_idx = y.argmax(axis=-1)
-            log_loss += self.log_loss(y.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
+            last_idx = y.argmax(axis=-1).swapaxes(0, 1) # from TN to NT, conforms to layout before
+            log_loss = log_loss + self.log_loss(y.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
         # y is the decoded full sentence, of layout TNC, need to change to NTC
         loss = log_loss + kl_loss
         return loss
