@@ -78,7 +78,7 @@ class VAEDecoder(nn.Block):
             # over all words in vocabulary)
             self.dense_output = nn.Dense(units=output_size, activation='relu', flatten=False)
 
-    def forward(self, last_state, paraphrase_input, latent_input):
+    def forward(self, last_state, last_input, latent_input):
         '''
         forward pass, inputs are last states (a list of last hidden output and last memory cell)
         paraphrase sentence embedding and latent output of encoder, i.e., z (mu sg when training,
@@ -87,26 +87,12 @@ class VAEDecoder(nn.Block):
         '''
         # latent_input is of shape (batch_size, hidden_size), we need to add the time dimension
         # and repeat itself T times to concat to paraphrase embedding, layout TN[hiddent_size]
-        latent_input = latent_input.expand_dims(axis=0).repeat(repeats=paraphrase_input.shape[0], axis=0)
+        latent_input = latent_input.expand_dims(axis=0).repeat(repeats=last_input.shape[0], axis=0)
         # layout is TNC, so concat along the last (channel) dimension, layout TN[emb_size+hidden_size]
-        decoder_input = nd.concat(paraphrase_input, latent_input, dim=-1)
+        decoder_input = nd.concat(last_input, latent_input, dim=-1)
         # decoder output is of shape TN[hidden_size]
         decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
         # since we calculate KL-loss with layout TNC, we will keep it this way
-        decoder_output = self.dense_output(decoder_output)
-        return decoder_output, decoder_state
-
-    def decode(self, last_state, paraphrase_input, latent_input):
-        '''
-        this method is used to generate sentence. ~~at first, last_state` is the output of original
-        encoding lstm, then it is the hidden state of self.decoder.~~ `latent_input` is a radomly
-        sampled vector from standard normal distribution N(0, 1). this method will return both a 
-        word prediction over voab, and its hidden state
-        '''
-        latent_input = latent_input.expand_dims(axis=0)
-        # `paraphrase_input` is the sentence embedding
-        decoder_input = nd.concat(paraphrase_input, latent_input, dim=-1)
-        decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
         decoder_output = self.dense_output(decoder_output)
         return decoder_output, decoder_state
 
@@ -119,6 +105,8 @@ class VAE_LSTM(nn.Block):
         with self.name_scope():
             self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.hidden_size = hidden_size
+            self.emb_size = emb_size
+            self.num_layers = num_layers
             self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - nd.square(mu) - nd.exp(sg), axis=-1)
             self.log_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(hidden_size=hidden_size, num_layers=num_layers, \
@@ -146,14 +134,16 @@ class VAE_LSTM(nn.Block):
         loss = log_loss + kl_loss
         return loss
 
-    def predict(self, original_idx, paraphrase_idx, normal_distr):
+    def predict(self, original_idx, paraphrase_idx, normal_distr, max_len=25):
         '''FIXME: this might be wrong
         this method is for predicting a paraphrase sentence
         '''
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
-        paraphrase_emb = self.embedding_layer(paraphrase_idx).swapaxes(0, 1)
+        last_input = nd.zeros(shape=(1, 1, self.emb_size), ctx=model_ctx)
         last_state = self.encoder.encode(original_emb)
         # we will just pred `max_len` tokens, and address <eos> token outside this method
-        pred, _ = self.decoder(last_state, paraphrase_emb, normal_distr)
-        pred_tk = pred.argmax(axis=-1).squeeze().astype('int32').asnumpy().tolist()
+        pred_tk = []
+        for _ in range(max_len):
+            pred, last_state = self.decoder(last_state, last_input, normal_distr)
+            pred_tk.append(int(pred.argmax(axis=-1).squeeze().astype('int32').asscalar()))
         return pred_tk
