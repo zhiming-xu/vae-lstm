@@ -10,10 +10,10 @@ logging.basicConfig(level=logging.INFO, \
                         logging.StreamHandler()
                     ])
 
-def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=None):
+def one_epoch(dataloader, model, trainer, ctx, is_train, epoch):
     '''
-    this function trains model for one epoch if `is_train` is True
-    also calculates loss/metrics whether in training or dev
+    this function trains model for one epoch if `is_train` is True, also calculates loss 
+    in both training and valid
     '''
     loss_val = 0.
     for n_batch, batch_sample in enumerate(dataloader):
