@@ -48,7 +48,8 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, class_weight=Non
         logging.info('valid_loss %.4f' % (loss_val))
     return loss_val
 
-def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ctx):
+def train_valid(dataloader_train, dataloader_test, model, trainer, \
+                num_epoch, ctx, ckpt_interval = 10):
     '''
     wrapper for training and "test" the model
     '''
@@ -64,5 +65,6 @@ def train_valid(dataloader_train, dataloader_test, model, trainer, num_epoch, ct
         end = time.time()
         logging.info('time %.2f sec' % (end-start))
         logging.info("*"*48)
-        if epoch % 10 == 0:
+        if epoch % ckpt_interval == 0:
+            # save params as a checkpoint every `ckpt_interval` epochs
             model.save_parameters('./params/vae-lstm%.4f.params' % loss)
