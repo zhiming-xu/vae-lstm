@@ -25,31 +25,17 @@ parser.add_argument('--ckpt_interval', type=int, default=10, help='save params e
 
 args = parser.parse_args()
 
-def generate(model, original_sts, paraphrase_sts, sample, vocab, ctx):
+def generate(model, original_sts, sample, vocab, ctx):
     '''FIXME this way of generation does not work now
     use the model to generate a paraphrase sentence, max_len is the max length of
     generated sentence
     '''
     original_idx = vocab[original_sts.lower().split(' ')]
     original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
-    paraphrase_idx = vocab[paraphrase_sts.lower().split(' ')]
-    paraphrase_idx = nd.array(paraphrase_idx, ctx=model_ctx).expand_dims(axis=0)
+    # paraphrase_idx = vocab[paraphrase_sts.lower().split(' ')]
+    # paraphrase_idx = nd.array(paraphrase_idx, ctx=model_ctx).expand_dims(axis=0)
     pred = model.predict(original_idx, sample, vocab['<bos>'], vocab['<eos>'])
     return ' '.join(vocab.to_tokens(pred))
-
-def generate_v2(model, original_sts, paraphrase_sts, vocab, ctx):
-    '''TODO: this is the wrong way, to be deleted later
-    use the model to generate a paraphrase sentence, with *both* original and
-    paraphrase input
-    '''
-    original_idx = vocab[original_sts.lower().split(' ')]
-    original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
-    paraphrase_idx = vocab[paraphrase_sts.lower().split(' ')]
-    paraphrase_idx = nd.array(paraphrase_idx, ctx=model_ctx).expand_dims(axis=0)
-    model(original_idx, paraphrase_idx)
-    output = model.output.squeeze(axis=0)   # output is of shape T[vocab_size]
-    idx_list = nd.argmax(output, axis=-1).astype('int32').asnumpy().tolist()
-    return ' '.join(vocab.to_tokens(idx_list))
 
 if __name__ == '__main__':
     if args.gen:
@@ -59,11 +45,9 @@ if __name__ == '__main__':
         model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
         model.load_parameters(args.param, ctx=model_ctx)
         sample = nd.normal(loc=0, scale=1, shape=(1, 256), ctx=model_ctx)
-        original_sts, paraphrase_sts = args.org_sts, args.prp_sts
-        print('\033[33mOriginal: \033[34m%s\033[0m' % original_sts)
-        print('\033[33mParaphrase: \033[34m%s\033[0m' % paraphrase_sts)
-        print('\033[31mResult 1: \033[35m%s\033[0m' % generate(model, original_sts, \
-              paraphrase_sts, sample, vocab, ctx=model_ctx))
+        print('\033[33mOriginal: \033[34m%s\033[0m' % args.org_sts)
+        print('\033[31mResult: \033[35m%s\033[0m' % generate(model, original_sts, \
+                                                    sample, vocab, ctx=model_ctx))
         # print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
         #      paraphrase_sts, vocab, ctx=model_ctx))
     else:

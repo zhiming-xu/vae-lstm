@@ -149,7 +149,7 @@ class VAE_LSTM(nn.Block):
         this method is for predicting a paraphrase sentence
         '''
         # 2 is for <bos>, might set as a param later
-        last_idx = nd.array([bos]).expand_dims(axis=0)
+        last_idx = nd.array([bos], ctx=model_ctx).expand_dims(axis=0)
         last_state = self.encoder.encode(original_idx)
         # predict a token list of at most max_len tokens
         pred_tks = []
