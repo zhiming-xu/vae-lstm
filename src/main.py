@@ -57,8 +57,8 @@ if __name__ == '__main__':
         # FIXME: the vocab_size is just a temporary workout to conform to saved params
         # better to rewrite the logic here later
         train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
-                                                   clip_length=args.seq_len, \
-                                                   vocab_size=21296, batch_size=64)
+                                                   clip_length=args.seq_len, vocab_size=21296, \
+                                                   batch_size=args.batch_size)
         # save the vocabulary for use when generating
         vocab_js = vocab.to_json()
         with open('data/vocab.json', 'w') as f:
