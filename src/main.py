@@ -26,7 +26,7 @@ parser.add_argument('--ckpt_interval', type=int, default=10, help='save params e
 args = parser.parse_args()
 
 def generate(model, original_sts, sample, vocab, ctx):
-    '''FIXME this way of generation does not work now
+    '''
     use the model to generate a paraphrase sentence, max_len is the max length of
     generated sentence
     '''
@@ -46,7 +46,7 @@ if __name__ == '__main__':
         model.load_parameters(args.param, ctx=model_ctx)
         sample = nd.normal(loc=0, scale=1, shape=(1, 256), ctx=model_ctx)
         print('\033[33mOriginal: \033[34m%s\033[0m' % args.org_sts)
-        print('\033[31mResult: \033[35m%s\033[0m' % generate(model, args.original_sts, \
+        print('\033[31mResult: \033[35m%s\033[0m' % generate(model, args.org_sts, \
                                                     sample, vocab, ctx=model_ctx))
         # print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
         #      paraphrase_sts, vocab, ctx=model_ctx))
