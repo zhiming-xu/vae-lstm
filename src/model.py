@@ -31,8 +31,8 @@ class VAEEncoder(nn.Block):
                                                prefix='paraphrase_sentence_encoder_VAEEncoder')
             # dense layers calculating mu and lv to sample, since the length of the input is
             # flexible, we need to use RNN
-            self.output_mu = rnn.LSTM(hidden_size=hidden_size, dropout=dropout)
-            self.output_sg = rnn.LSTM(hidden_size=hidden_size, dropout=dropout)
+            self.output_mu = nn.Dense(hidden_size)
+            self.output_sg = nn.Dense(hidden_size)
 
     def forward(self, original_idx, paraphrase_idx):
         '''
@@ -49,8 +49,8 @@ class VAEEncoder(nn.Block):
         paraphrase_encoded, _ = self.paraphrase_encoder(paraphrase_emb, original_last_state)
         # this is the \phi of VAE encoder, i.e., \mu and "\sigma", FIXME: use the last output now
         # thus their shapes are of (batch_size, hidden_size)
-        mu = self.output_mu(paraphrase_encoded)[-1] # \mu, mean of sampled distribution
-        sg = self.output_sg(paraphrase_encoded)[-1] # \sg, std dev of sampler distribution based on
+        mu = self.output_mu(paraphrase_encoded[-1]) # \mu, mean of sampled distribution
+        sg = self.output_sg(paraphrase_encoded[-1]) # \sg, std dev of sampler distribution based on
         return mu, sg, original_last_state
     
     def encode(self, original_idx):
