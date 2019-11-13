@@ -39,7 +39,7 @@ def generate(model, original_sts, sample, vocab, ctx):
 
 if __name__ == '__main__':
     if args.gen:
-        with open('data/vocab.json', 'r') as f:
+        with open('data/'+args.dataset+'/vocab.json', 'r') as f:
             vocab = nlp.Vocab.from_json(json.load(f))
             
         model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
@@ -61,7 +61,7 @@ if __name__ == '__main__':
                                                    batch_size=args.batch_size)
         # save the vocabulary for use when generating
         vocab_js = vocab.to_json()
-        with open('data/vocab.json', 'w') as f:
+        with open('data/'+args.dataset+'/vocab.json', 'w') as f:
             json.dump(vocab_js, f)
         # set embedding
         vocab.set_embedding(nlp.embedding.GloVe(source='glove.6B.300d'))
@@ -86,4 +86,4 @@ if __name__ == '__main__':
         # train and valid
         train_valid(train_ld, valid_ld, model, trainer, num_epoch=args.nepoch, ctx=model_ctx, \
                     ckpt_interval=args.ckpt_interval)
-        model.save_parameters('data/vae-lstm.params')
+        model.save_parameters('params/vae-lstm.params')
