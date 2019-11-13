@@ -103,8 +103,8 @@ def _get_batch_dataloader(dataset_idx, batch_size=None, sampler=None):
         logging.debug('Create dataloader for valid of %d samples' % len(dataloader))
     return dataloader
 
-def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab_size=50000, \
-                   batch_size=64, num_buckets=10, ratio=.5):
+def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab=None, \
+                   vocab_size=50000, batch_size=64, num_buckets=10, ratio=.5):
     '''
     convenient function to get the dataloader for both training and valid set, the params
     taken are: 
@@ -117,11 +117,17 @@ def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab_s
     logging.info('Begin to tokenize valid set')
     valid_dataset_tk = _tokenize_dataset(valid_dataset_str, length=clip_length)
     logging.info('Begin to build vocabulary')
-    vocab = _create_vocab(train_dataset_tk, max_size=vocab_size)
+    # without vocab, build a new one
+    if not vocab: 
+        vocab = _create_vocab(train_dataset_tk, max_size=vocab_size)
     train_dataset_idx = _token_to_index(train_dataset_tk, vocab)
     valid_dataset_idx = _token_to_index(valid_dataset_tk, vocab)
     train_sampler = _get_sampler(train_dataset_idx, batch_size=batch_size, \
                                  num_buckets=num_buckets, ratio=ratio)
     train_dataloader = _get_batch_dataloader(train_dataset_idx, sampler=train_sampler)
     valid_dataloader = _get_batch_dataloader(valid_dataset_idx, batch_size=batch_size)
-    return train_dataloader, valid_dataloader, vocab
+    if not vocab:
+        return train_dataloader, valid_dataloader, vocab
+    else:
+        return train_dataloader, valid_dataloader
+

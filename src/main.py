@@ -54,26 +54,29 @@ if __name__ == '__main__':
         # load train, valid dataset
         train_dataset_str, valid_dataset_str = get_dataset_str(folder=args.dataset, \
                                                                length=args.nsample)
-        # FIXME: the vocab_size is just a temporary workout to conform to saved params
-        # better to rewrite the logic here later
-        train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
+        # start from existing parameters
+        if args.param:
+            with open('data/'+args.dataset+'/vocab.json', 'r') as f:
+                vocab = nlp.Vocab.from_json(json.load(f))
+            # use this loaded vocab
+            train_ld, valid_ld = get_dataloader(train_dataset_str, valid_dataset_str, \
+                                                clip_length=args.seq_len, vocab=vocab, \
+                                                batch_size=args.batch_size)
+            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
+            model.load_parameters(args.param, ctx=model_ctx)
+        # new start, randomly initialize model
+        else:
+            train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
                                                    clip_length=args.seq_len, vocab_size=21296, \
                                                    batch_size=args.batch_size)
-        # save the vocabulary for use when generating
-        vocab_js = vocab.to_json()
-        with open('data/'+args.dataset+'/vocab.json', 'w') as f:
-            json.dump(vocab_js, f)
+            vocab_js = vocab.to_json()
+            with open('data/'+args.dataset+'/vocab.json', 'w') as f:
+                json.dump(vocab_js, f)
+            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
+            # new start
+            model.initialize(init=mx.initializer.Xavier(magnitude=.7), ctx=model_ctx)
         # set embedding
         vocab.set_embedding(nlp.embedding.GloVe(source='glove.6B.300d'))
-        # create model
-        model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
-        if args.param:
-            # start from previous params, do not load embedding layer since `vocab_size`
-            # can change from time to time
-            model.load_parameters(args.param, ctx=model_ctx)
-        else:
-            # new start
-            model.initialize(init=mx.initializer.Xavier(magnitude=1), ctx=model_ctx)
         # embedding layer for idx2vec, intentionally set in both decoder & encoder
         model.encoder.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
         model.decoder.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
