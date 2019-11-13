@@ -22,6 +22,7 @@ parser.add_argument('--lr', type=float, default=3e-4, help='learning rate')
 parser.add_argument('--clip_grad', type=float, default=2., help='clipped gradient')
 parser.add_argument('--ckpt_interval', type=int, default=10, help='save params every \
                     `ckpt_interval` epochs')
+parser.add_argument('--fix_emb', action='store_true', help='fix word embedding')
 
 args = parser.parse_args()
 
@@ -67,8 +68,8 @@ if __name__ == '__main__':
         # new start, randomly initialize model
         else:
             train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
-                                                   clip_length=args.seq_len, vocab_size=21296, \
-                                                   batch_size=args.batch_size)
+                                                       clip_length=args.seq_len, vocab_size=50000, \
+                                                       batch_size=args.batch_size)
             vocab_js = vocab.to_json()
             with open('data/'+args.dataset+'/vocab.json', 'w') as f:
                 json.dump(vocab_js, f)
@@ -80,8 +81,9 @@ if __name__ == '__main__':
         # embedding layer for idx2vec, intentionally set in both decoder & encoder
         model.encoder.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
         model.decoder.embedding_layer.weight.set_data(vocab.embedding.idx_to_vec)
-        model.encoder.embedding_layer.collect_params().setattr('grad_req', 'null')
-        model.decoder.embedding_layer.collect_params().setattr('grad_req', 'null')
+        if args.fix_emb:
+            model.encoder.embedding_layer.collect_params().setattr('grad_req', 'null')
+            model.decoder.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer
         trainer = gluon.Trainer(model.collect_params(), 'adam', \
                                {'learning_rate': args.lr, 'clip_gradient': args.clip_grad, \

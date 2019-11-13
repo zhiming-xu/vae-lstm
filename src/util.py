@@ -1,5 +1,6 @@
 # !/usr/bin/env python3
 import gluonnlp as nlp
+from random import sample
 
 DATA_DIR = 'data/'
 FILES = ['train_source.txt', 'train_target.txt']
@@ -8,10 +9,10 @@ def _load_dataset(src_name, tgt_name, length=None):
     '''
     src_name: filename of source sentence, tgt_name: filename of target sentence
     '''
-    with open(src_name, 'r') as f_src, open(tgt_name, 'r') as f_tgt:
+    with open(src_name, 'r', encoding='utf-8') as f_src, open(tgt_name, 'r', encoding='utf-8') as f_tgt:
         src_list = [line.strip() for line in f_src]
         tgt_list = [line.strip() for line in f_tgt]
-    return [pair for pair in zip(src_list, tgt_list)][:length]
+    return sample([pair for pair in zip(src_list, tgt_list)], length)
 
 def get_dataset_str(folder='mscoco', length=None):
     '''

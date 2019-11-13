@@ -120,13 +120,16 @@ def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab=N
     # without vocab, build a new one
     if not vocab: 
         vocab = _create_vocab(train_dataset_tk, max_size=vocab_size)
+        ret_vocab = True
+    else:
+        ret_vocab = False
     train_dataset_idx = _token_to_index(train_dataset_tk, vocab)
     valid_dataset_idx = _token_to_index(valid_dataset_tk, vocab)
     train_sampler = _get_sampler(train_dataset_idx, batch_size=batch_size, \
                                  num_buckets=num_buckets, ratio=ratio)
     train_dataloader = _get_batch_dataloader(train_dataset_idx, sampler=train_sampler)
     valid_dataloader = _get_batch_dataloader(valid_dataset_idx, batch_size=batch_size)
-    if not vocab:
+    if ret_vocab:
         return train_dataloader, valid_dataloader, vocab
     else:
         return train_dataloader, valid_dataloader
