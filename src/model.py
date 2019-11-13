@@ -157,6 +157,7 @@ class VAE_LSTM(nn.Block):
             pred, last_state = self.decoder(last_state, last_idx, normal_distr)
             pred_tk = int(pred.argmax(axis=-1).squeeze().astype('int32').asscalar())
             if pred_tk == eos:
+                pred_tks.append(pred_tk)
                 break
             pred_tks.append(pred_tk)
         return pred_tks

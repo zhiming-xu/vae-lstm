@@ -35,7 +35,7 @@ def generate(model, original_sts, sample, vocab, ctx):
     original_idx = nd.array(original_idx, ctx=model_ctx).expand_dims(axis=0) # add N
     # paraphrase_idx = vocab[paraphrase_sts.lower().split(' ')]
     # paraphrase_idx = nd.array(paraphrase_idx, ctx=model_ctx).expand_dims(axis=0)
-    pred = model.predict(original_idx, sample, vocab['<bos>'], vocab['<eos>'])
+    pred = model.predict(original_idx, sample, bos=vocab['<bos>'], eos=vocab['<eos>'])
     return ' '.join(vocab.to_tokens(pred))
 
 if __name__ == '__main__':
