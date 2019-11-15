@@ -12,7 +12,8 @@ def _load_dataset(src_name, tgt_name, length=None):
     with open(src_name, 'r', encoding='utf-8') as f_src, open(tgt_name, 'r', encoding='utf-8') as f_tgt:
         src_list = [line.strip() for line in f_src]
         tgt_list = [line.strip() for line in f_tgt]
-    return sample([pair for pair in zip(src_list, tgt_list)], length)
+    all_dataset = [pair for pair in zip(src_list, tgt_list)]
+    return all_dataset if not length else sample(all_dataset, length)
 
 def get_dataset_str(folder='mscoco', length=None):
     '''

@@ -23,7 +23,7 @@ parser.add_argument('--clip_grad', type=float, default=10., help='clipped gradie
 parser.add_argument('--ckpt_interval', type=int, default=10, help='save params every \
                     `ckpt_interval` epochs')
 parser.add_argument('--fix_emb', action='store_true', help='fix word embedding')
-parser.add_argument('--lr_decay', action="store_false", help="decrease lr gradually")
+parser.add_argument('--lr_decay', action="store_true", help="decrease lr gradually")
 
 args = parser.parse_args()
 
