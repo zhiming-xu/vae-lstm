@@ -118,8 +118,8 @@ class VAE_LSTM(nn.Block):
             self.emb_size = emb_size
             self.hidden_size = hidden_size
             self.latent_size = latent_size
-            # self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - nd.square(mu) - nd.exp(sg), axis=-1)
-            self.kl_div = lambda mu, sg: (-0.5 * nd.sum(sg - mu*mu - nd.exp(sg) + 1, 1)).mean().squeeze()
+            self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - nd.square(mu) - nd.exp(sg), axis=-1)
+            # self.kl_div = lambda mu, sg: (-0.5 * nd.sum(sg - mu*mu - nd.exp(sg) + 1, 1)).mean().squeeze()
             self.log_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(vocab_size=vocab_size, emb_size=emb_size, hidden_size=hidden_size, \
                                       num_layers=num_layers, dropout=dropout, bidir=bidir)
@@ -146,8 +146,8 @@ class VAE_LSTM(nn.Block):
         for pos in range(paraphrase_idx.shape[-1]-1):
             y, last_state = self.decoder(last_state, last_idx, latent_input)
             last_idx = y.argmax(axis=-1).swapaxes(0, 1) # from TN to NT, conforms to layout before
+            # only compare the label we predict, note the first is bos and will be ignored
             log_loss = log_loss + self.log_loss(y.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
-        # y is the decoded full sentence, of layout TNC, need to change to NTC
         loss = log_loss + kl_loss
         return loss
 

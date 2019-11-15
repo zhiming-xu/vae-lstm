@@ -23,6 +23,7 @@ parser.add_argument('--clip_grad', type=float, default=10., help='clipped gradie
 parser.add_argument('--ckpt_interval', type=int, default=10, help='save params every \
                     `ckpt_interval` epochs')
 parser.add_argument('--fix_emb', action='store_true', help='fix word embedding')
+parser.add_argument('--lr_decay', action="store_false", help="decrease lr gradually")
 
 args = parser.parse_args()
 
@@ -63,7 +64,7 @@ if __name__ == '__main__':
             train_ld, valid_ld = get_dataloader(train_dataset_str, valid_dataset_str, \
                                                 clip_length=args.seq_len, vocab=vocab, \
                                                 batch_size=args.batch_size)
-            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
+            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=600)
             model.load_parameters(args.param, ctx=model_ctx)
         # new start, randomly initialize model
         else:
@@ -90,5 +91,5 @@ if __name__ == '__main__':
                                 'wd': 2e-5})
         # train and valid
         train_valid(train_ld, valid_ld, model, trainer, num_epoch=args.nepoch, ctx=model_ctx, \
-                    ckpt_interval=args.ckpt_interval)
+                    ckpt_interval=args.ckpt_interval, lr_decay=args.lr_decay)
         model.save_parameters('params/vae-lstm.params')
