@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO, \
                         logging.StreamHandler()
                     ])
 
-def one_epoch(dataloader, model, trainer, ctx, is_train, epoch):
+def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
     '''
     this function trains model for one epoch if `is_train` is True, also calculates loss 
     in both training and valid
@@ -42,14 +42,14 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch):
         logging.info('epoch %d, learning_rate %.5f, train_loss %.4f' %
                     (epoch, trainer.learning_rate, loss_val))
         # declay lr
-        if epoch % 5 == 0:
+        if epoch % 5 == 0 and lr_decay:
             trainer.set_learning_rate(trainer.learning_rate * 0.9)
     else:
         logging.info('valid_loss %.4f' % (loss_val))
     return loss_val
 
 def train_valid(dataloader_train, dataloader_test, model, trainer, \
-                num_epoch, ctx, ckpt_interval = 10):
+                num_epoch, ctx, ckpt_interval = 10, lr_decay=False):
     '''
     wrapper for training and "test" the model
     '''
@@ -57,7 +57,7 @@ def train_valid(dataloader_train, dataloader_test, model, trainer, \
         start = time.time()
         # train
         is_train = True
-        one_epoch(dataloader_train, model, trainer, ctx, is_train, epoch)
+        one_epoch(dataloader_train, model, trainer, ctx, is_train, epoch, lr_decay=lr_decay)
 
         # valid
         is_train = False

@@ -15,8 +15,8 @@ class VAEEncoder(nn.Block):
     for encode original AND paraphase together. output of the latter is passed to a de facto
     LSTM to generate mu and lv
     '''
-    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=3, dropout=.3, \
-                 bidir=False, **kwargs):
+    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=1, dropout=.3, \
+                 bidir=False, latent_size=1100, **kwargs):
         '''
         init this class, create relevant rnns
         '''
@@ -31,8 +31,8 @@ class VAEEncoder(nn.Block):
                                                prefix='paraphrase_sentence_encoder_VAEEncoder')
             # dense layers calculating mu and lv to sample, since the length of the input is
             # flexible, we need to use RNN
-            self.output_mu = nn.Dense(hidden_size)
-            self.output_sg = nn.Dense(hidden_size)
+            self.output_mu = nn.Dense(units=latent_size)
+            self.output_sg = nn.Dense(units=latent_size)
 
     def forward(self, original_idx, paraphrase_idx):
         '''
@@ -68,7 +68,7 @@ class VAEDecoder(nn.Block):
     '''
     decoder part of the VAE model
     '''
-    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=3, dropout=.3, bidir=False, **kwargs):
+    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=2, dropout=.3, bidir=False, **kwargs):
         '''
         init this class, create relevant rnns, note: we will share the original sentence encoder
         between VAE encoder and VAE decoder
@@ -107,11 +107,13 @@ class VAE_LSTM(nn.Block):
     '''
     wrapper of all part of this model
     '''
-    def __init__(self, emb_size, vocab_size, hidden_size, num_layers, dropout=.3, bidir=False, **kwargs):
+    def __init__(self, emb_size, vocab_size, hidden_size, num_layers, dropout=.3, bidir=False, \
+                 latent_size=1100, **kwargs):
         super(VAE_LSTM, self).__init__(**kwargs)
         with self.name_scope():
             self.emb_size = emb_size
             self.hidden_size = hidden_size
+            self.latent_size = latent_size
             self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - nd.square(mu) - nd.exp(sg), axis=-1)
             self.log_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(vocab_size=vocab_size, emb_size=emb_size, hidden_size=hidden_size, \
@@ -127,7 +129,7 @@ class VAE_LSTM(nn.Block):
         # encoder part
         mu, sg, last_state = self.encoder(original_idx, paraphrase_idx)
         # sample from Gaussian distribution N(0, 1), of the shape (batch_size, hidden_size)
-        eps = nd.normal(loc=0, scale=1, shape=(original_idx.shape[0], self.hidden_size), ctx=model_ctx)
+        eps = nd.normal(loc=0, scale=1, shape=(original_idx.shape[0], self.latent_size), ctx=model_ctx)
         latent_input = mu + nd.exp(0.5 * sg) * eps  # exp is to make the std dev positive
         # the KL Div should be calculated between the sample from N(0, 1), and the distribution after
         # Parameterization Trick, negation since we want it to be small

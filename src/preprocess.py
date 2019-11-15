@@ -72,7 +72,7 @@ def _get_length(sample):
     '''
     return len(sample[0]), len(sample[1])
 
-def _get_sampler(dataset_idx, batch_size=64, num_buckets=10, ratio=.5):
+def _get_sampler(dataset_idx, batch_size=32, num_buckets=10, ratio=.5):
     '''
     for training set, we use this function to return the sampler
     '''
@@ -104,7 +104,7 @@ def _get_batch_dataloader(dataset_idx, batch_size=None, sampler=None):
     return dataloader
 
 def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab=None, \
-                   vocab_size=50000, batch_size=64, num_buckets=10, ratio=.5):
+                   vocab_size=50000, batch_size=32, num_buckets=10, ratio=.5):
     '''
     convenient function to get the dataloader for both training and valid set, the params
     taken are: 
