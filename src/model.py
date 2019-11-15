@@ -16,12 +16,14 @@ class VAEEncoder(nn.Block):
     LSTM to generate mu and lv
     '''
     def __init__(self, vocab_size, emb_size, hidden_size, num_layers=1, dropout=.3, \
-                 bidir=False, latent_size=1100, **kwargs):
+                 bidir=True, latent_size=1100, **kwargs):
         '''
         init this class, create relevant rnns
         '''
         super(VAEEncoder, self).__init__(**kwargs)
         with self.name_scope():
+            self.num_layers = num_layers
+            self.hidden_size = hidden_size
             self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.original_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                              dropout=dropout, bidirectional=bidir, \
@@ -45,13 +47,15 @@ class VAEEncoder(nn.Block):
         start_state = self.original_encoder.begin_state(batch_size=original_emb.shape[1], ctx=model_ctx)
         # original_encoder_state is a list: [hidden_output, memory cell] of the last time step,
         # pass them as starting state of paraphrase encoder, just like in Seq2Seq
-        _, original_last_state = self.original_encoder(original_emb, start_state)
-        paraphrase_encoded, _ = self.paraphrase_encoder(paraphrase_emb, original_last_state)
-        # this is the \phi of VAE encoder, i.e., \mu and "\sigma", FIXME: use the last output now
-        # thus their shapes are of (batch_size, hidden_size)
-        mu = self.output_mu(paraphrase_encoded[-1]) # \mu, mean of sampled distribution
-        sg = self.output_sg(paraphrase_encoded[-1]) # \sg, std dev of sampler distribution based on
-        return mu, sg, original_last_state
+        _, original_last_states = self.original_encoder(original_emb, start_state)
+        _, (_, paraphrase_last_state) = self.paraphrase_encoder(paraphrase_emb, original_last_states)
+        # this is the \phi of VAE encoder, i.e., \mu and "\sigma"
+        context = paraphrase_last_state.reshape(shape=(self.num_layers, 2, -1, self.hidden_size))
+        context = context[-1]
+        context = nd.concat(context[0], context[1], dim=1)
+        mu = self.output_mu(context) # \mu, mean of sampled distribution
+        sg = self.output_sg(context) # \sg, std dev of sampler distribution based on
+        return mu, sg, original_last_states
     
     def encode(self, original_idx):
         '''
@@ -68,7 +72,7 @@ class VAEDecoder(nn.Block):
     '''
     decoder part of the VAE model
     '''
-    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=2, dropout=.3, bidir=False, **kwargs):
+    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=2, dropout=.3, bidir=True, **kwargs):
         '''
         init this class, create relevant rnns, note: we will share the original sentence encoder
         between VAE encoder and VAE decoder
@@ -107,14 +111,15 @@ class VAE_LSTM(nn.Block):
     '''
     wrapper of all part of this model
     '''
-    def __init__(self, emb_size, vocab_size, hidden_size, num_layers, dropout=.3, bidir=False, \
-                 latent_size=1100, **kwargs):
+    def __init__(self, emb_size, vocab_size, hidden_size, num_layers=2, dropout=.3, \
+                 bidir=True, latent_size=1100, **kwargs):
         super(VAE_LSTM, self).__init__(**kwargs)
         with self.name_scope():
             self.emb_size = emb_size
             self.hidden_size = hidden_size
             self.latent_size = latent_size
-            self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - nd.square(mu) - nd.exp(sg), axis=-1)
+            # self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - nd.square(mu) - nd.exp(sg), axis=-1)
+            self.kl_div = lambda mu, sg: (-0.5 * nd.sum(sg - mu*mu - nd.exp(sg) + 1, 1)).mean().squeeze()
             self.log_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(vocab_size=vocab_size, emb_size=emb_size, hidden_size=hidden_size, \
                                       num_layers=num_layers, dropout=dropout, bidir=bidir)

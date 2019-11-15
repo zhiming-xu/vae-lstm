@@ -73,7 +73,7 @@ if __name__ == '__main__':
             vocab_js = vocab.to_json()
             with open('data/'+args.dataset+'/vocab.json', 'w') as f:
                 json.dump(vocab_js, f)
-            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=256, num_layers=2)
+            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=600)
             # new start
             model.initialize(init=mx.initializer.Xavier(magnitude=.7), ctx=model_ctx)
         # set embedding
@@ -85,7 +85,7 @@ if __name__ == '__main__':
             model.encoder.embedding_layer.collect_params().setattr('grad_req', 'null')
             model.decoder.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer
-        trainer = gluon.Trainer(model.collect_params(), 'sgd', \
+        trainer = gluon.Trainer(model.collect_params(), 'adam', \
                                {'learning_rate': args.lr, \
                                 'wd': 2e-5})
         # train and valid
