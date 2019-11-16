@@ -116,9 +116,9 @@ def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab=N
     train_dataset_tk = _tokenize_dataset(train_dataset_str, length=clip_length)
     logging.info('Begin to tokenize valid set')
     valid_dataset_tk = _tokenize_dataset(valid_dataset_str, length=clip_length)
-    logging.info('Begin to build vocabulary')
-    # without vocab, build a new one
     if not vocab: 
+        logging.info('Begin to build vocabulary')
+        # without vocab, build a new one
         vocab = _create_vocab(train_dataset_tk, max_size=vocab_size)
         ret_vocab = True
     else:

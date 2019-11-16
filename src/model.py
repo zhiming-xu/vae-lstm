@@ -15,7 +15,7 @@ class VAEEncoder(nn.Block):
     for encode original AND paraphase together. output of the latter is passed to a de facto
     LSTM to generate mu and lv
     '''
-    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=1, dropout=.3, \
+    def __init__(self, vocab_size, emb_size, hidden_size, num_layers=2, dropout=.3, \
                  bidir=True, latent_size=1100, **kwargs):
         '''
         init this class, create relevant rnns
