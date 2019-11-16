@@ -1,6 +1,7 @@
 # !/usr/bin/env python3
 from mxnet import autograd
 import time, logging
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO, \
                     format='%(asctime)s %(module)s %(levelname)-8s %(message)s', \
@@ -16,7 +17,7 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
     in both training and valid
     '''
     loss_val = 0.
-    for n_batch, batch_sample in enumerate(dataloader):
+    for n_batch, batch_sample in enumerate(tqdm(dataloader)):
         original, paraphrase = batch_sample
         original = original.as_in_context(ctx)
         paraphrase = paraphrase.as_in_context(ctx)
