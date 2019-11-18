@@ -22,8 +22,8 @@ class VAEEncoder(nn.Block):
         '''
         super(VAEEncoder, self).__init__(**kwargs)
         with self.name_scope():
-            self.num_layers = num_layers
             self.hidden_size = hidden_size
+            self.hidden_factor = (2 if bidir else 1) * num_layers
             self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.original_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                              dropout=dropout, bidirectional=bidir, \
@@ -38,7 +38,7 @@ class VAEEncoder(nn.Block):
 
     def forward(self, original_idx, paraphrase_idx):
         '''
-        forward pass, inputs are embeddings of original sentences and paraphrase sentences, layout TNC
+        forward pass, inputs are token_idx of original sentences and paraphrase sentences, layout NT
         '''
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
         # FIXME might remove the <bos> and <eos> token in paraphrase here
@@ -48,14 +48,13 @@ class VAEEncoder(nn.Block):
         # original_encoder_state is a list: [hidden_output, memory cell] of the last time step,
         # pass them as starting state of paraphrase encoder, just like in Seq2Seq
         _, original_last_states = self.original_encoder(original_emb, start_state)
-        _, (_, paraphrase_last_state) = self.paraphrase_encoder(paraphrase_emb, original_last_states)
-        # this is the \phi of VAE encoder, i.e., \mu and "\sigma"
-        context = paraphrase_last_state.reshape(shape=(self.num_layers, 2, -1, self.hidden_size))
-        context = context[-1]
-        context = nd.concat(context[0], context[1], dim=1)
-        mu = self.output_mu(context) # \mu, mean of sampled distribution
-        sg = self.output_sg(context) # \sg, std dev of sampler distribution based on
-        return mu, sg, original_last_states
+        # we will take the hidden_output of the last step of our second lstm
+        _, (paraphrase_hidden_state, _) = self.paraphrase_encoder(paraphrase_emb, original_last_states)
+        # this is the \phi of VAE encoder, i.e., mean and logv
+        context = paraphrase_hidden_state.reshape(shape=(-1, self.hidden_factor * self.hidden_size))
+        mean = self.output_mu(context) # \mu, mean of sampled distribution
+        logv = self.output_sg(context) # \sg, std dev of sampler distribution based on
+        return mean, logv, original_last_states
     
     def encode(self, original_idx):
         '''
@@ -65,8 +64,8 @@ class VAEEncoder(nn.Block):
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
         # batch_size -> T[N]C
         start_state = self.original_encoder.begin_state(batch_size=original_idx.shape[0], ctx=model_ctx)
-        _, original_last_state = self.original_encoder(original_emb, start_state)
-        return original_last_state
+        _, original_last_states = self.original_encoder(original_emb, start_state)
+        return original_last_states
         
 class VAEDecoder(nn.Block):
     '''
@@ -102,10 +101,10 @@ class VAEDecoder(nn.Block):
         # layout is TNC, so concat along the last (channel) dimension, layout TN[emb_size+hidden_size]
         decoder_input = nd.concat(last_emb, latent_input, dim=-1)
         # decoder output is of shape TN[hidden_size]
-        decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
+        vocab_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
         # since we calculate KL-loss with layout TNC, we will keep it this way
-        decoder_output = self.dense_output(decoder_output)
-        return decoder_output, decoder_state
+        vocab_output = self.dense_output(vocab_output)
+        return vocab_output, decoder_state
 
 class VAE_LSTM(nn.Block):
     '''
@@ -115,10 +114,9 @@ class VAE_LSTM(nn.Block):
                  bidir=True, latent_size=1100, **kwargs):
         super(VAE_LSTM, self).__init__(**kwargs)
         with self.name_scope():
-            self.emb_size = emb_size
-            self.hidden_size = hidden_size
             self.latent_size = latent_size
-            self.kl_div = lambda mu, sg: 0.5 * nd.sum(1 + sg - nd.square(mu) - nd.exp(sg), axis=-1)
+            # i have confirmed the calculation of kl divergence is right
+            self.kl_div = lambda mean, logv: 0.5 * nd.sum(1 + logv - mean.square() - logv.exp())
             # self.kl_div = lambda mu, sg: (-0.5 * nd.sum(sg - mu*mu - nd.exp(sg) + 1, 1)).mean().squeeze()
             self.log_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(vocab_size=vocab_size, emb_size=emb_size, hidden_size=hidden_size, \
@@ -131,23 +129,25 @@ class VAE_LSTM(nn.Block):
         forward pass of the whole model, original/paraphrase_idx are both of layout
         NT, to be added "C" by embedding layer
         '''
-        # encoder part
-        mu, sg, last_state = self.encoder(original_idx, paraphrase_idx)
+        # ENCODER part
+        mean, logv, last_state = self.encoder(original_idx, paraphrase_idx)
         # sample from Gaussian distribution N(0, 1), of the shape (batch_size, hidden_size)
-        eps = nd.normal(loc=0, scale=1, shape=(original_idx.shape[0], self.latent_size), ctx=model_ctx)
-        latent_input = mu + nd.exp(0.5 * sg) * eps  # exp is to make the std dev positive
+        z = nd.normal(loc=0, scale=1, shape=(original_idx.shape[0], self.latent_size), ctx=model_ctx)
+        latent_input = mean + nd.exp(0.5 * logv) * z  # exp() is to make the std dev positive
+        
+        # DECODER part
         # the KL Div should be calculated between the sample from N(0, 1), and the distribution after
         # Parameterization Trick, negation since we want it to be small
-        kl_loss = -self.kl_div(mu, sg)
+        kl_loss = -self.kl_div(mean, logv)
         # first paraphrase_input should be the <bos> token
         last_idx = paraphrase_idx[:, 0:1]
         log_loss = 0
         # decode the sample
         for pos in range(paraphrase_idx.shape[-1]-1):
-            y, last_state = self.decoder(last_state, last_idx, latent_input)
-            last_idx = y.argmax(axis=-1).swapaxes(0, 1) # from TN to NT, conforms to layout before
+            vocab_output, last_state = self.decoder(last_state, last_idx, latent_input)
             # only compare the label we predict, note the first is bos and will be ignored
-            log_loss = log_loss + self.log_loss(y.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
+            log_loss = log_loss + self.log_loss(vocab_output.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
+            last_idx = vocab_output.argmax(axis=-1).swapaxes(0, 1) # from TN to NT, conforms to layout before
         loss = log_loss + kl_loss
         return loss
 
