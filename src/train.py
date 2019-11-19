@@ -23,7 +23,7 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
     this function trains model for one epoch if `is_train` is True, also calculates loss 
     in both training and valid
     '''
-    loss_val = 0.
+    loss_val, ppl = 0., 0.
     for n_batch, batch_sample in enumerate(tqdm(dataloader)):
         original, paraphrase = batch_sample
         original = original.as_in_context(ctx)
@@ -37,10 +37,11 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
             l.backward()
             # update parmas
             trainer.step(original.shape[0])
-
         else:
             kl_loss, ce_loss = model(original, paraphrase)
             l = kl_loss + ce_loss
+            # ppl
+            ppl += np.exp(ce_loss / original.shape[0])
 
         # keep result for metric
         batch_loss = l.mean().asscalar()
@@ -48,15 +49,16 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
 
     # metric
     loss_val /= (n_batch + 1)
-
+    ppl /= (n_batch + 1)
+    
     if is_train:
-        logging.info('epoch %d, learning_rate %.5f, train_loss %.4f' %
+        logging.info('epoch %d, learning_rate %.5f, train_loss %.3f' %
                     (epoch, trainer.learning_rate, loss_val))
         # declay lr
         if epoch % 5 == 0 and lr_decay:
             trainer.set_learning_rate(trainer.learning_rate * 0.9)
     else:
-        logging.info('valid_loss %.4f' % (loss_val))
+        logging.info('valid_loss %.3f, perplexity' % (loss_val, ppl))
     return loss_val
 
 def train_valid(dataloader_train, dataloader_test, model, trainer, \

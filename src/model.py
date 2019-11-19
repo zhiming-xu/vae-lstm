@@ -84,7 +84,7 @@ class VAEDecoder(nn.Block):
                                                prefix='VAEDecoder_prp_decoder')
             # the `output_size` should be set eqaul to the vocab size (a probablity distribution
             # over all words in vocabulary)
-            self.dense_output = nn.Dense(vocab_size, activation='relu', flatten=False)
+            self.dense_output = nn.Dense(vocab_size, activation='tanh')
 
     def forward(self, last_state, last_idx, latent_input):
         '''
@@ -101,9 +101,9 @@ class VAEDecoder(nn.Block):
         # layout is TNC, so concat along the last (channel) dimension, layout TN[emb_size+hidden_size]
         decoder_input = nd.concat(last_emb, latent_input, dim=-1)
         # decoder output is of shape TN[hidden_size]
-        vocab_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
+        decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
         # since we calculate KL-loss with layout TNC, we will keep it this way
-        vocab_output = self.dense_output(vocab_output)
+        vocab_output = self.dense_output(decoder_output)
         return vocab_output, decoder_state
 
 class VAE_LSTM(nn.Block):
