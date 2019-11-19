@@ -146,7 +146,7 @@ class VAE_LSTM(nn.Block):
             vocab_output, last_state = self.decoder(last_state, last_idx, latent_input)
             # only compare the label we predict, note the first is bos and will be ignored
             ce_loss = ce_loss + self.ce_loss(vocab_output, paraphrase_idx[:, pos+1:pos+2])
-            last_idx = vocab_output.argmax(axis=-1, keep_dims=True)
+            last_idx = vocab_output.argmax(axis=-1, keepdims=True)
         return kl_loss, ce_loss
 
     def predict(self, original_idx, normal_distr, bos, eos, max_len=25):
