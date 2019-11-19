@@ -133,7 +133,7 @@ class VAE_LSTM(nn.Block):
         mean, logv, last_state = self.encoder(original_idx, paraphrase_idx)
         # sample from Gaussian distribution N(0, 1), of the shape (batch_size, hidden_size)
         z = nd.normal(loc=0, scale=1, shape=(original_idx.shape[0], self.latent_size), ctx=model_ctx)
-        latent_input = mean + nd.exp(0.5 * logv) * z  # exp() is to make the std dev positive
+        latent_input = mean + z * nd.exp(0.5 * logv)  # exp() is to make the std dev positive
         
         # DECODER part
         # the KL Div should be calculated between the sample from N(0, 1), and the distribution after
