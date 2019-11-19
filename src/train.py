@@ -58,13 +58,13 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
         if epoch % 5 == 0 and lr_decay:
             trainer.set_learning_rate(trainer.learning_rate * 0.9)
     else:
-        logging.info('valid_loss %.3f, perplexity' % (loss_val, ppl))
+        logging.info('valid_loss %.3f, perplexity %.3f' % (loss_val, ppl))
     return loss_val
 
 def train_valid(dataloader_train, dataloader_test, model, trainer, \
                 num_epoch, ctx, ckpt_interval = 10, lr_decay=False):
     '''
-    wrapper for training and "test" the model
+    wrapper for training and test the model
     '''
     for epoch in range(1, num_epoch + 1):
         start = time.time()

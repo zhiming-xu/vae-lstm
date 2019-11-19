@@ -100,10 +100,9 @@ class VAEDecoder(nn.Block):
         latent_input = latent_input.expand_dims(axis=0).repeat(repeats=last_emb.shape[0], axis=0)
         # layout is TNC, so concat along the last (channel) dimension, layout TN[emb_size+hidden_size]
         decoder_input = nd.concat(last_emb, latent_input, dim=-1)
-        # decoder output is of shape TN[hidden_size]
+        # decoder output is of shape TNC
         decoder_output, decoder_state = self.paraphrase_decoder(decoder_input, last_state)
-        # since we calculate KL-loss with layout TNC, we will keep it this way
-        vocab_output = self.dense_output(decoder_output)
+        vocab_output = self.dense_output(decoder_output.swapaxes(0, 1))
         return vocab_output, decoder_state
 
 class VAE_LSTM(nn.Block):
@@ -146,8 +145,8 @@ class VAE_LSTM(nn.Block):
         for pos in range(paraphrase_idx.shape[-1]-1):
             vocab_output, last_state = self.decoder(last_state, last_idx, latent_input)
             # only compare the label we predict, note the first is bos and will be ignored
-            ce_loss = ce_loss + self.ce_loss(vocab_output.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
-            last_idx = vocab_output.argmax(axis=-1).swapaxes(0, 1) # from TN to NT, conforms to layout before
+            ce_loss = ce_loss + self.ce_loss(vocab_output, paraphrase_idx[:, pos+1:pos+2])
+            last_idx = vocab_output.argmax(axis=-1).expand_dims(axis=1)
         return kl_loss, ce_loss
 
     def predict(self, original_idx, normal_distr, bos, eos, max_len=25):

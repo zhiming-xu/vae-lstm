@@ -50,8 +50,6 @@ if __name__ == '__main__':
         print('\033[33mOriginal: \033[34m%s\033[0m' % args.org_sts)
         print('\033[31mResult: \033[35m%s\033[0m' % generate(model, args.org_sts, \
                                                     sample, vocab, ctx=model_ctx))
-        # print('\033[31mResult 2: \033[35m%s\033[0m' % generate_v2(model, original_sts, \
-        #      paraphrase_sts, vocab, ctx=model_ctx))
     else:
         # load train, valid dataset
         train_dataset_str, valid_dataset_str = get_dataset_str(folder=args.dataset, \
@@ -87,8 +85,7 @@ if __name__ == '__main__':
             model.decoder.embedding_layer.collect_params().setattr('grad_req', 'null')
         # trainer
         trainer = gluon.Trainer(model.collect_params(), 'adam', \
-                               {'learning_rate': args.lr, \
-                                'wd': 2e-5})
+                               {'learning_rate': args.lr, 'wd': 2e-5})
         # train and valid
         train_valid(train_ld, valid_ld, model, trainer, num_epoch=args.nepoch, ctx=model_ctx, \
                     ckpt_interval=args.ckpt_interval, lr_decay=args.lr_decay)
