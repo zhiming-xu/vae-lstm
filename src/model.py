@@ -148,8 +148,7 @@ class VAE_LSTM(nn.Block):
             # only compare the label we predict, note the first is bos and will be ignored
             log_loss = log_loss + self.log_loss(vocab_output.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
             last_idx = vocab_output.argmax(axis=-1).swapaxes(0, 1) # from TN to NT, conforms to layout before
-        loss = log_loss + kl_loss
-        return loss
+        return kl_loss, log_loss
 
     def predict(self, original_idx, normal_distr, bos, eos, max_len=25):
         '''

@@ -2,6 +2,7 @@
 from mxnet import autograd
 import time, logging
 from tqdm import tqdm
+import numpy as np
 
 logging.basicConfig(level=logging.INFO, \
                     format='%(asctime)s %(module)s %(levelname)-8s %(message)s', \
@@ -10,6 +11,12 @@ logging.basicConfig(level=logging.INFO, \
                         logging.FileHandler("vae-lstm.log"),
                         logging.StreamHandler()
                     ])
+
+def kl_anneal_function(anneal_function, step, k=.0025, x0=2500):
+        if anneal_function == 'logistic':
+            return float(1/(1+np.exp(-k*(step-x0))))
+        elif anneal_function == 'linear':
+            return min(1, step/x0)
 
 def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
     '''
@@ -22,15 +29,18 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
         original = original.as_in_context(ctx)
         paraphrase = paraphrase.as_in_context(ctx)
         if is_train:
+            kl_weight = kl_anneal_function('logistic', epoch)
             with autograd.record():
-                l = model(original, paraphrase)
+                kl_loss, log_loss = model(original, paraphrase)
+                l = kl_weight * kl_loss + log_loss
             # backward calculate
             l.backward()
             # update parmas
             trainer.step(original.shape[0])
 
         else:
-            l = model(original, paraphrase)
+            kl_loss, log_loss = model(original, paraphrase)
+            l = kl_loss + log_loss
 
         # keep result for metric
         batch_loss = l.mean().asscalar()
