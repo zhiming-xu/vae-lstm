@@ -2,7 +2,7 @@
 from mxnet import autograd
 import time, logging
 from tqdm import tqdm
-import numpy as np
+from mxnet import nd
 
 logging.basicConfig(level=logging.INFO, \
                     format='%(asctime)s %(module)s %(levelname)-8s %(message)s', \
@@ -40,16 +40,12 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
         else:
             kl_loss, ce_loss = model(original, paraphrase)
             l = kl_loss + ce_loss
-            # ppl
-            ppl += np.exp(ce_loss / original.shape[0])
-
         # keep result for metric
         batch_loss = l.mean().asscalar()
         loss_val += batch_loss
 
     # metric
     loss_val /= (n_batch + 1)
-    ppl /= (n_batch + 1)
     
     if is_train:
         logging.info('epoch %d, learning_rate %.5f, train_loss %.3f' %
@@ -58,7 +54,7 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
         if epoch % 5 == 0 and lr_decay:
             trainer.set_learning_rate(trainer.learning_rate * 0.9)
     else:
-        logging.info('valid_loss %.3f, perplexity %.3f' % (loss_val, ppl))
+        logging.info('valid_loss %.3f' % (loss_val))
     return loss_val
 
 def train_valid(dataloader_train, dataloader_test, model, trainer, \

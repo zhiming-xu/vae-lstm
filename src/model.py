@@ -5,7 +5,7 @@ from mxnet.gluon import nn, rnn, loss
 
 try:
     nd.ones(shape=(2, 2), ctx=mx.gpu())
-    model_ctx = mx.gpu()
+    model_ctx = mx.cpu()
 except:
     model_ctx = mx.cpu()
 
