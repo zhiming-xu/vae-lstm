@@ -31,16 +31,16 @@ def one_epoch(dataloader, model, trainer, ctx, is_train, epoch, lr_decay=False):
         if is_train:
             kl_weight = kl_anneal_function('logistic', epoch)
             with autograd.record():
-                kl_loss, log_loss = model(original, paraphrase)
-                l = kl_weight * kl_loss + log_loss
+                kl_loss, ce_loss = model(original, paraphrase)
+                l = kl_weight * kl_loss + ce_loss
             # backward calculate
             l.backward()
             # update parmas
             trainer.step(original.shape[0])
 
         else:
-            kl_loss, log_loss = model(original, paraphrase)
-            l = kl_loss + log_loss
+            kl_loss, ce_loss = model(original, paraphrase)
+            l = kl_loss + ce_loss
 
         # keep result for metric
         batch_loss = l.mean().asscalar()

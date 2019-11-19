@@ -27,10 +27,10 @@ class VAEEncoder(nn.Block):
             self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.original_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                              dropout=dropout, bidirectional=bidir, \
-                                             prefix='original_sentence_encoder_VAEEncoder')
+                                             prefix='VAEEncoder_org_encoder')
             self.paraphrase_encoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                                dropout=dropout, bidirectional=bidir, \
-                                               prefix='paraphrase_sentence_encoder_VAEEncoder')
+                                               prefix='VAEEncoder_prp_encoder')
             # dense layers calculating mu and lv to sample, since the length of the input is
             # flexible, we need to use RNN
             self.output_mu = nn.Dense(units=latent_size)
@@ -41,8 +41,8 @@ class VAEEncoder(nn.Block):
         forward pass, inputs are token_idx of original sentences and paraphrase sentences, layout NT
         '''
         original_emb = self.embedding_layer(original_idx).swapaxes(0, 1)
-        # FIXME might remove the <bos> and <eos> token in paraphrase here
-        paraphrase_emb = self.embedding_layer(paraphrase_idx).swapaxes(0, 1)
+        # remove the <bos> and <eos> token in paraphrase here
+        paraphrase_emb = self.embedding_layer(paraphrase_idx[:, 1:-1]).swapaxes(0, 1)
         # to let lstm return final state and memory cell, we need to pass `start_state`
         start_state = self.original_encoder.begin_state(batch_size=original_emb.shape[1], ctx=model_ctx)
         # original_encoder_state is a list: [hidden_output, memory cell] of the last time step,
@@ -81,7 +81,7 @@ class VAEDecoder(nn.Block):
             self.embedding_layer = nn.Embedding(vocab_size, emb_size)
             self.paraphrase_decoder = rnn.LSTM(hidden_size=hidden_size, num_layers=num_layers, \
                                                dropout=dropout, bidirectional=bidir, \
-                                               prefix='paraphrase_sentence_decoder_VAEDecoder')
+                                               prefix='VAEDecoder_prp_decoder')
             # the `output_size` should be set eqaul to the vocab size (a probablity distribution
             # over all words in vocabulary)
             self.dense_output = nn.Dense(vocab_size, activation='relu', flatten=False)
@@ -118,7 +118,7 @@ class VAE_LSTM(nn.Block):
             # i have confirmed the calculation of kl divergence is right
             self.kl_div = lambda mean, logv: 0.5 * nd.sum(1 + logv - mean.square() - logv.exp())
             # self.kl_div = lambda mu, sg: (-0.5 * nd.sum(sg - mu*mu - nd.exp(sg) + 1, 1)).mean().squeeze()
-            self.log_loss = loss.SoftmaxCELoss()
+            self.ce_loss = loss.SoftmaxCELoss()
             self.encoder = VAEEncoder(vocab_size=vocab_size, emb_size=emb_size, hidden_size=hidden_size, \
                                       num_layers=num_layers, dropout=dropout, bidir=bidir)
             self.decoder = VAEDecoder(vocab_size=vocab_size, emb_size=emb_size, hidden_size=hidden_size, \
@@ -141,14 +141,14 @@ class VAE_LSTM(nn.Block):
         kl_loss = -self.kl_div(mean, logv)
         # first paraphrase_input should be the <bos> token
         last_idx = paraphrase_idx[:, 0:1]
-        log_loss = 0
+        ce_loss = 0
         # decode the sample
         for pos in range(paraphrase_idx.shape[-1]-1):
             vocab_output, last_state = self.decoder(last_state, last_idx, latent_input)
             # only compare the label we predict, note the first is bos and will be ignored
-            log_loss = log_loss + self.log_loss(vocab_output.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
+            ce_loss = ce_loss + self.ce_loss(vocab_output.swapaxes(0, 1), paraphrase_idx[:, pos+1:pos+2])
             last_idx = vocab_output.argmax(axis=-1).swapaxes(0, 1) # from TN to NT, conforms to layout before
-        return kl_loss, log_loss
+        return kl_loss, ce_loss
 
     def predict(self, original_idx, normal_distr, bos, eos, max_len=25):
         '''

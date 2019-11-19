@@ -48,7 +48,7 @@ def _create_vocab(dataset_tk, max_size):
     '''
     seqs = [sample[0] + sample[1] for sample in dataset_tk]
     counter = nlp.data.count_tokens(list(itertools.chain.from_iterable(seqs)))
-    vocab = nlp.Vocab(counter=counter, max_size=max_size)
+    vocab = nlp.Vocab(counter=counter, max_size=max_size, min_freq=2)
     logging.info('Create vocabulary: %s' % vocab)
     return vocab
 
@@ -87,8 +87,8 @@ def _get_batch_dataloader(dataset_idx, batch_size=None, sampler=None):
     batchify the dataset whose row are [src_idx, tgt_idx], batch size is set to batch_size
     '''
     batchify_fn = nlp.data.batchify.Tuple(
-        nlp.data.batchify.Pad(axis=0, pad_val=3),   # pad <eos> token
-        nlp.data.batchify.Pad(axis=0, pad_val=3)    # pad <eos> token
+        nlp.data.batchify.Pad(axis=0, pad_val=1),   # pad <pad> token
+        nlp.data.batchify.Pad(axis=0, pad_val=1)    # pad <pad> token
     )
 
     if sampler:
@@ -104,12 +104,12 @@ def _get_batch_dataloader(dataset_idx, batch_size=None, sampler=None):
     return dataloader
 
 def get_dataloader(train_dataset_str, valid_dataset_str, clip_length=25, vocab=None, \
-                   vocab_size=50000, batch_size=32, num_buckets=10, ratio=.5):
+                   vocab_size=20000, batch_size=32, num_buckets=10, ratio=.5):
     '''
     convenient function to get the dataloader for both training and valid set, the params
     taken are: 
         train/valid dataset in str form, clip length for each sentence
-        maximum vocabulary size (default 50k), batch size (default 64)
+        maximum vocabulary size (default 40k), batch size (default 64)
         bucket numer (default 10), bucket ratio (default .5) for training set batch sampler
     '''
     logging.info('Begin to tokenize train set')
