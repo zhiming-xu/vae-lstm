@@ -16,7 +16,7 @@ class VAEEncoder(nn.Block):
     LSTM to generate mu and lv
     '''
     def __init__(self, vocab_size, emb_size, hidden_size, num_layers=2, dropout=.3, \
-                 bidir=True, latent_size=1100, **kwargs):
+                 bidir=True, latent_size=64, **kwargs):
         '''
         init this class, create relevant rnns
         '''
@@ -109,8 +109,8 @@ class VAE_LSTM(nn.Block):
     '''
     wrapper of all part of this model
     '''
-    def __init__(self, emb_size, vocab_size, hidden_size, num_layers=2, dropout=.3, \
-                 bidir=True, latent_size=1100, **kwargs):
+    def __init__(self, emb_size, vocab_size, hidden_size=256, num_layers=2, dropout=.2, \
+                 bidir=True, latent_size=64, **kwargs):
         super(VAE_LSTM, self).__init__(**kwargs)
         with self.name_scope():
             self.latent_size = latent_size

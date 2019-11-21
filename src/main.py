@@ -16,8 +16,8 @@ parser.add_argument('--prp_sts', type=str, help='paraphrase sentence for generat
 parser.add_argument('--dataset', type=str, default='mscoco', help='paraphrase dataset used')
 parser.add_argument('--nsample', type=int, default=None, help='# of training samples used')
 parser.add_argument('--nepoch', type=int, default=100, help='# of training epoch')
-parser.add_argument('--batch_size', type=int, default=32, help='train batch size')
-parser.add_argument('--seq_len', type=int, default=25, help='max sequence length after clipping')
+parser.add_argument('--batch_size', type=int, default=128, help='train batch size')
+parser.add_argument('--seq_len', type=int, default=30, help='max sequence length after clipping')
 parser.add_argument('--lr', type=float, default=5e-5, help='learning rate')
 parser.add_argument('--clip_grad', type=float, default=10., help='clipped gradient')
 parser.add_argument('--ckpt_interval', type=int, default=10, help='save params every \
@@ -44,9 +44,9 @@ if __name__ == '__main__':
         with open('data/'+args.dataset+'/vocab.json', 'r') as f:
             vocab = nlp.Vocab.from_json(json.load(f))
             
-        model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=600)
+        model = VAE_LSTM(emb_size=300, vocab_size=len(vocab))
         model.load_parameters(args.param, ctx=model_ctx)
-        sample = nd.normal(loc=0, scale=1, shape=(1, 1100), ctx=model_ctx)
+        sample = nd.normal(loc=0, scale=1, shape=(1, 64), ctx=model_ctx)
         print('\033[33mOriginal: \033[34m%s\033[0m' % args.org_sts)
         print('\033[31mResult: \033[35m%s\033[0m' % generate(model, args.org_sts, \
                                                     sample, vocab, ctx=model_ctx))
@@ -62,17 +62,17 @@ if __name__ == '__main__':
             train_ld, valid_ld = get_dataloader(train_dataset_str, valid_dataset_str, \
                                                 clip_length=args.seq_len, vocab=vocab, \
                                                 batch_size=args.batch_size)
-            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=600)
+            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab))
             model.load_parameters(args.param, ctx=model_ctx)
         # new start, randomly initialize model
         else:
             train_ld, valid_ld, vocab = get_dataloader(train_dataset_str, valid_dataset_str, \
-                                                       clip_length=args.seq_len, vocab_size=50000, \
+                                                       clip_length=args.seq_len, vocab_size=20000, \
                                                        batch_size=args.batch_size)
             vocab_js = vocab.to_json()
             with open('data/'+args.dataset+'/vocab.json', 'w') as f:
                 json.dump(vocab_js, f)
-            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab), hidden_size=600)
+            model = VAE_LSTM(emb_size=300, vocab_size=len(vocab))
             # new start
             model.initialize(init=mx.initializer.Xavier(magnitude=.7), ctx=model_ctx)
         # set embedding

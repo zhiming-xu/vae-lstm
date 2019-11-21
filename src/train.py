@@ -2,7 +2,7 @@
 from mxnet import autograd
 import time, logging
 from tqdm import tqdm
-from mxnet import nd
+import numpy as np
 
 logging.basicConfig(level=logging.INFO, \
                     format='%(asctime)s %(module)s %(levelname)-8s %(message)s', \
